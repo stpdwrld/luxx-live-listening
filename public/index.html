@@ -75,6 +75,18 @@
 
         <p id="track-album" class="album"></p>
 
+        <!-- PLAYBACK PROGRESS -->
+        <div class="playback-progress" id="playback-progress" hidden>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+
+          <div class="progress-times">
+            <span id="progress-current">0:00</span>
+            <span id="progress-duration">0:00</span>
+          </div>
+        </div>
+
         <a id="spotify-link"
           class="track-link"
           href="#"
@@ -143,7 +155,6 @@
         return;
       }
 
-      // CREATE EQUALIZER
       for (let i = 0; i < 35; i++) {
         const bar = document.createElement("span");
 
@@ -154,7 +165,6 @@
         visualizer.appendChild(bar);
       }
 
-      // SYNC MINI PLAYER
       function syncPlayer() {
         const playing = playState.textContent === "NOW PLAYING";
 
@@ -164,7 +174,9 @@
 
         $("mini-artist").textContent = playing
           ? artist.textContent
-          : "LUXX LIVE LISTENING";
+          : playState.textContent === "PAUSED"
+            ? artist.textContent
+            : "LUXX LIVE LISTENING";
 
         $("mini-cover").src = cover.src;
 
@@ -190,7 +202,6 @@
 
       syncPlayer();
 
-      // HAMBURGER MENU
       const toggle = $("menuToggle");
       const menu = $("mainMenu");
 

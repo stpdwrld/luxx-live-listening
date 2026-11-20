@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090909">
+  <meta name="description" content="LUXX Live Listening — currently playing music.">
+  <title>LUXX — Live Listening</title>
+  <link rel="preconnect" href="https://ws.audioscrobbler.com">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/">LUXX<span>.</span></a>
+      <div class="live-indicator"><i id="status-dot"></i><span id="status-label">CHECKING</span></div>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">PERSONAL LISTENING ROOM</p>
+      <h1>Currently<br><span>listening.</span></h1>
+      <p class="intro">A live window into what’s playing right now.</p>
+    </section>
+
+    <section class="player-card" aria-live="polite">
+      <div class="cover-wrap">
+        <img id="cover" src="/cover-placeholder.svg" alt="Album artwork">
+        <div class="cover-glow"></div>
+      </div>
+      <div class="track-info">
+        <p class="eyebrow" id="play-state">WAITING FOR MUSIC</p>
+        <h2 id="track-title">Nothing playing</h2>
+        <p id="track-artist" class="artist">When playback starts, it will appear here.</p>
+        <p id="track-album" class="album"></p>
+        <a id="lastfm-link" class="track-link" href="#" target="_blank" rel="noreferrer" hidden>OPEN ON LAST.FM ↗</a>
+      </div>
+    </section>
+
+    <section class="bottom-row">
+      <div><span class="meta-label">SOURCE</span><strong>LAST.FM · PANO SCROBBLER</strong></div>
+      <div><span class="meta-label">STATUS</span><strong id="updated">Waiting for update</strong></div>
+    </section>
+
+    <footer><span>LUXX LIVE LISTENING</span><span>MADE FOR THE LOVE OF MUSIC.</span></footer>
+  </main>
+  <script src="/script.js" defer></script>
+</body>
+</html>

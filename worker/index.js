@@ -611,7 +611,7 @@ async function listeningStats(env, period) {
     FROM listening_history
     ${where}
     ORDER BY played_at DESC
-    LIMIT 20
+    LIMIT 10
   `).bind(...bind).all();
 
   return json({

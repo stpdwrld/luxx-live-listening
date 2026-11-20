@@ -1,0 +1,16 @@
+.luxx-listening {
+  box-sizing: border-box; width: 100%; max-width: 560px; padding: 22px;
+  color: #eee; background: #101010; border: 1px solid #292929;
+  font-family: Georgia, "Times New Roman", serif;
+}
+.luxx-listening * { box-sizing: border-box; }
+.luxx-listening__top { display:flex; justify-content:space-between; align-items:center; padding-bottom:16px; border-bottom:1px solid #333; }
+.luxx-listening__brand { font-size:22px; letter-spacing:.18em; }
+.luxx-listening__status { font: 10px/1.2 Arial,sans-serif; letter-spacing:.16em; color:#999; }
+.luxx-listening__status.is-live { color:#d7d7d7; }
+.luxx-listening__body { display:flex; gap:18px; align-items:center; padding-top:20px; }
+.luxx-listening__cover { width:104px; height:104px; object-fit:cover; background:#222; }
+.luxx-listening__meta { min-width:0; }
+.luxx-listening__eyebrow { margin:0 0 8px; color:#888; font:10px Arial,sans-serif; letter-spacing:.16em; }
+.luxx-listening__meta h2 { margin:0 0 6px; font-size:21px; font-weight:400; overflow-wrap:anywhere; }
+.luxx-listening__artist,.luxx-listening__album { margin:4px 0; color:#aaa; font:13px Arial,sans-serif; }

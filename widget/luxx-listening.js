@@ -1,5 +1,5 @@
 // Replace this with your deployed Cloudflare Worker URL.
-const LUXX_WORKER_URL = "https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev";
+const LUXX_WORKER_URL = "https://luxx-live-listening.luckyzp77.workers.dev/";
 
 async function updateLuxxListening() {
   const status = document.getElementById("luxx-status");

@@ -2,9 +2,15 @@
 const $ = (id) => document.getElementById(id);
 
 const POLL_MS = 5000;
+const TIMER_MS = 1000;
 
 let lastTrackKey = "";
 let isRefreshing = false;
+
+let playbackProgress = 0;
+let playbackDuration = 0;
+let playbackStartedAt = 0;
+let isTrackPlaying = false;
 
 function setText(id, value) {
   const el = $(id);
@@ -41,6 +47,75 @@ function setSpotifyLink(url) {
   }
 }
 
+function formatTime(milliseconds) {
+  const seconds = Math.floor(Math.max(0, milliseconds) / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
+function currentProgress() {
+  if (!isTrackPlaying) return playbackProgress;
+
+  const elapsed = Date.now() - playbackStartedAt;
+
+  return Math.min(
+    playbackDuration,
+    playbackProgress + Math.max(0, elapsed)
+  );
+}
+
+function renderProgress() {
+  const wrapper = $("playback-progress");
+  const fill = $("progress-fill");
+
+  if (!wrapper || !fill) return;
+
+  if (!playbackDuration) {
+    wrapper.hidden = true;
+    return;
+  }
+
+  wrapper.hidden = false;
+
+  const progress = currentProgress();
+  const percentage = Math.min(
+    100,
+    (progress / playbackDuration) * 100
+  );
+
+  fill.style.width = `${percentage}%`;
+
+  setText("progress-current", formatTime(progress));
+  setText("progress-duration", formatTime(playbackDuration));
+}
+
+function syncProgress(progress, duration, playing) {
+  playbackProgress = Math.max(0, Number(progress) || 0);
+  playbackDuration = Math.max(0, Number(duration) || 0);
+  playbackStartedAt = Date.now();
+  isTrackPlaying = !!playing;
+
+  renderProgress();
+}
+
+function resetProgress() {
+  playbackProgress = 0;
+  playbackDuration = 0;
+  playbackStartedAt = 0;
+  isTrackPlaying = false;
+
+  const wrapper = $("playback-progress");
+  const fill = $("progress-fill");
+
+  if (wrapper) wrapper.hidden = true;
+  if (fill) fill.style.width = "0%";
+
+  setText("progress-current", "0:00");
+  setText("progress-duration", "0:00");
+}
+
 function showOffline() {
   setStatus(false, "OFFLINE");
 
@@ -55,6 +130,8 @@ function showOffline() {
   setCover("/cover-placeholder.svg");
   setSpotifyLink("");
 
+  resetProgress();
+
   lastTrackKey = "";
 }
 
@@ -68,6 +145,8 @@ function showError(message) {
 
   setCover("/cover-placeholder.svg");
   setSpotifyLink("");
+
+  resetProgress();
 }
 
 async function refresh() {
@@ -86,15 +165,17 @@ async function refresh() {
       throw new Error(data.error || "API unavailable");
     }
 
-    if (!data.isPlaying || !data.track) {
+    if (!data.track) {
       showOffline();
     } else {
       const t = data.track;
 
       const key = `${t.id || ""}|${t.title}|${t.artist}|${t.album}`;
 
-      setStatus(true, "LIVE NOW");
-      setText("play-state", "NOW PLAYING");
+      const playing = !!data.isPlaying;
+
+      setStatus(true, playing ? "LIVE NOW" : "PAUSED");
+      setText("play-state", playing ? "NOW PLAYING" : "PAUSED");
 
       if (key !== lastTrackKey) {
         lastTrackKey = key;
@@ -107,6 +188,12 @@ async function refresh() {
       }
 
       setSpotifyLink(t.url);
+
+      syncProgress(
+        data.progress,
+        t.duration,
+        playing
+      );
     }
 
     setText(
@@ -125,10 +212,18 @@ async function refresh() {
   }
 }
 
+// Initial load
 refresh();
 
+// Sync with Spotify every 5 seconds
 setInterval(refresh, POLL_MS);
 
+// Smooth local timer every second
+setInterval(() => {
+  renderProgress();
+}, TIMER_MS);
+
+// Refresh when user returns to the page
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) refresh();
 });

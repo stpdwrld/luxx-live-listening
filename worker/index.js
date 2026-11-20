@@ -181,6 +181,103 @@ async function nowPlaying(env) {
   });
 }
 
+async function lastfmRequest(env, params) {
+  const url = new URL(LASTFM_ENDPOINT);
+
+  url.search = new URLSearchParams({
+    ...params,
+    api_key: env.LASTFM_API_KEY,
+    format: "json"
+  }).toString();
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      "user-agent": "LUXX-Live-Listening/1.0 (Cloudflare Worker)"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Last.fm HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if (data.error) {
+    throw new Error(data.message || "Last.fm API error");
+  }
+
+  return data;
+}
+
+async function trackStats(env) {
+  if (!env.LASTFM_API_KEY || !env.LASTFM_USER) {
+    return json({
+      ok: false,
+      error: "Last.fm belum dikonfigurasi."
+    }, 503);
+  }
+
+  const currentResponse = await nowPlaying(env);
+  const current = await currentResponse.json();
+
+  if (!current.ok) {
+    return json(current, currentResponse.status);
+  }
+
+  if (!current.isPlaying || !current.track) {
+    return json({
+      ok: true,
+      status: "offline",
+      isPlaying: false,
+      track: null,
+      stats: null
+    });
+  }
+
+  const { title, artist } = current.track;
+
+  const [trackData, artistData, userData] = await Promise.all([
+    lastfmRequest(env, {
+      method: "track.getInfo",
+      artist,
+      track: title,
+      username: env.LASTFM_USER
+    }),
+
+    lastfmRequest(env, {
+      method: "artist.getInfo",
+      artist,
+      username: env.LASTFM_USER
+    }),
+
+    lastfmRequest(env, {
+      method: "user.getInfo",
+      user: env.LASTFM_USER
+    })
+  ]);
+
+  return json({
+    ok: true,
+    status: "online",
+    isPlaying: true,
+    track: current.track,
+    stats: {
+      trackPlays: Number(
+        trackData.track?.userplaycount || 0
+      ),
+
+      artistPlays: Number(
+        artistData.artist?.stats?.userplaycount || 0
+      ),
+
+      totalScrobbles: Number(
+        userData.user?.playcount || 0
+      )
+    },
+    lastUpdated: new Date().toISOString()
+  });
+}
+
 async function adminAPI(request, env, url) {
   if (request.method === "POST" && !checkOrigin(request, url)) {
     return json({ ok: false, error: "Invalid origin" }, 403);
@@ -308,6 +405,36 @@ export default {
         }, 502);
       }
     }
+    
+if (url.pathname === "/api/track-stats") {
+  if (request.method !== "GET") {
+    return json({
+      ok: false,
+      error: "Method not allowed"
+    }, 405);
+  }
+
+  try {
+    const manual = await env.PRESENCE.get("manual_status");
+
+    if (manual === "offline") {
+      return json({
+        ok: true,
+        status: "offline",
+        isPlaying: false,
+        track: null,
+        stats: null
+      });
+    }
+
+    return await trackStats(env);
+  } catch {
+    return json({
+      ok: false,
+      error: "Tidak bisa mengambil statistik Last.fm."
+    }, 502);
+  }
+}
 
     if (url.pathname === "/api/health") {
       return json({ ok: true, service: "LUXX Live Listening" });

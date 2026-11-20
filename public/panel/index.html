@@ -15,45 +15,72 @@
       <span class="admin-label">ADMIN ACCESS</span>
     </header>
 
+    <!-- LOGIN -->
     <section id="login-view" class="card">
       <p class="eyebrow">SECURE AREA</p>
       <h1>Welcome<br><span>back.</span></h1>
       <p class="muted">Sign in to manage your listening status.</p>
 
       <form id="login-form">
-        <label for="username">Username</label>
-        <input id="username" autocomplete="username" required>
-
-        <label for="password">Password</label>
-        <input id="password" type="password"
-          autocomplete="current-password" required>
+        <label for="password">Admin Password</label>
+        <input
+          id="password"
+          type="password"
+          autocomplete="current-password"
+          required
+        >
 
         <button type="submit">SIGN IN</button>
         <p id="login-error" class="error" role="alert"></p>
       </form>
     </section>
 
+    <!-- DASHBOARD -->
     <section id="dashboard-view" class="card" hidden>
       <p class="eyebrow">CONTROL CENTER</p>
       <h1>Listening<br><span>control.</span></h1>
       <p class="muted">Manage your public listening presence.</p>
 
+      <!-- SPOTIFY -->
+      <div class="status-box">
+        <span class="muted">SPOTIFY CONNECTION</span>
+        <strong id="spotify-status">CHECKING...</strong>
+        <p id="spotify-description">Checking Spotify connection...</p>
+      </div>
+
+      <button id="spotify-connect-button">
+        CONNECT SPOTIFY
+      </button>
+
+      <p id="spotify-message" class="message" role="status"></p>
+
+      <hr>
+
+      <!-- LISTENING MODE -->
       <div class="status-box">
         <span class="muted">CURRENT MODE</span>
         <strong id="current-mode">LOADING...</strong>
         <p id="mode-description">Checking status...</p>
       </div>
 
-      <button id="auto-button" class="secondary">AUTO MODE</button>
-      <button id="offline-button" class="danger">FORCE OFFLINE</button>
+      <button id="auto-button" class="secondary">
+        AUTO MODE
+      </button>
+
+      <button id="offline-button" class="danger">
+        FORCE OFFLINE
+      </button>
 
       <p id="action-message" class="message" role="status"></p>
 
-      <button id="logout-button" class="logout">LOG OUT</button>
+      <button id="logout-button" class="logout">
+        LOG OUT
+      </button>
     </section>
 
     <footer>LUXX LIVE LISTENING · ADMIN</footer>
   </main>
+
   <script src="/panel/panel.js" defer></script>
 </body>
 </html>

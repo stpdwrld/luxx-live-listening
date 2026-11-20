@@ -1,9 +1,11 @@
+
 const COOKIE_NAME = "luxx_admin";
 const SESSION_SECONDS = 8 * 60 * 60;
 const SPOTIFY_API = "https://api.spotify.com/v1";
 const SPOTIFY_AUTH = "https://accounts.spotify.com";
 
 const ARTIST_IMAGE_CACHE_SECONDS = 30 * 24 * 60 * 60;
+const HISTORY_SYNC_COOLDOWN = 30;
 
 // ========================================
 // RESPONSE
@@ -271,6 +273,7 @@ async function spotifyFetch(path, env) {
     await env.PRESENCE.delete(
       "spotify_access_token"
     );
+
     throw new Error("Spotify authorization expired");
   }
 
@@ -310,9 +313,111 @@ function mapTrack(track) {
 }
 
 // ========================================
-// ARTIST IMAGES
+// HYBRID SYNC: LIVE CANDIDATE
 // ========================================
 
+async function savePendingPlayback(track, env) {
+  if (!track?.id) return;
+
+  let previous = null;
+
+  try {
+    const saved = await env.PRESENCE.get(
+      "spotify_live_session"
+    );
+
+    if (saved) previous = JSON.parse(saved);
+  } catch {
+    previous = null;
+  }
+
+  // Lagu yang sama dalam sesi aktif tidak dicatat ulang.
+  if (previous?.trackId === track.id) {
+    return;
+  }
+
+  const artists = track.artists || [];
+  const album = track.album || {};
+  const firstArtist = artists[0] || {};
+
+  const startedAt = new Date().toISOString();
+  const sessionKey = crypto.randomUUID();
+
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO listening_pending (
+      session_key,
+      track_id,
+      track_name,
+      artist_id,
+      artist_name,
+      album_id,
+      album_name,
+      image_url,
+      spotify_url,
+      started_at,
+      duration_ms
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    sessionKey,
+    track.id,
+    track.name || "Unknown",
+    firstArtist.id || null,
+    firstArtist.name || "Unknown",
+    album.id || null,
+    album.name || "",
+    album.images?.[0]?.url || "",
+    track.external_urls?.spotify || "",
+    startedAt,
+    track.duration_ms || 0
+  ).run();
+
+  await env.PRESENCE.put(
+    "spotify_live_session",
+    JSON.stringify({
+      trackId: track.id,
+      sessionKey,
+      startedAt
+    })
+  );
+
+  // Bersihkan kandidat lama agar tabel tidak terus membesar.
+  const cutoff = new Date(
+    Date.now() - 30 * 86400000
+  ).toISOString();
+
+  await env.DB.prepare(`
+    DELETE FROM listening_pending
+    WHERE started_at < ?
+  `).bind(cutoff).run();
+}
+
+// ========================================
+// LIVE PLAYBACK CHECK
+// ========================================
+
+async function getLivePlayback(env) {
+  const manual = await env.PRESENCE.get(
+    "manual_status"
+  );
+
+  if (manual === "offline") return null;
+
+  const data = await spotifyFetch(
+    "/me/player/currently-playing",
+    env
+  );
+
+  if (data?.item && data.is_playing) {
+    await savePendingPlayback(data.item, env);
+  }
+
+  return data;
+}
+
+// ========================================
+// ARTIST IMAGES
+// ========================================
 
 async function attachArtistImages(artists, env) {
   if (!Array.isArray(artists) || !artists.length) {
@@ -329,8 +434,8 @@ async function attachArtistImages(artists, env) {
         };
       }
 
-      // Versi cache baru agar cache kosong sebelumnya dilewati.
-      const cacheKey = `spotify_artist_image_v3:${artist.id}`;
+      const cacheKey =
+        `spotify_artist_image_v3:${artist.id}`;
 
       try {
         const cached = await env.PRESENCE.get(cacheKey);
@@ -354,7 +459,10 @@ async function attachArtistImages(artists, env) {
           await env.PRESENCE.put(
             cacheKey,
             image,
-            { expirationTtl: 2592000 }
+            {
+              expirationTtl:
+                ARTIST_IMAGE_CACHE_SECONDS
+            }
           );
 
           return { ...artist, image, imageError: null };
@@ -396,7 +504,6 @@ function offlineResponse() {
   });
 }
 
-
 async function nowPlaying(env) {
   const manual = await env.PRESENCE.get("manual_status");
 
@@ -404,12 +511,8 @@ async function nowPlaying(env) {
     return offlineResponse();
   }
 
-  const data = await spotifyFetch(
-    "/me/player/currently-playing",
-    env
-  );
+  const data = await getLivePlayback(env);
 
-  // Tidak ada lagu yang sedang aktif.
   if (!data?.item) {
     return offlineResponse();
   }
@@ -425,10 +528,33 @@ async function nowPlaying(env) {
 }
 
 // ========================================
-// LISTENING HISTORY SYNC
+// PERMANENT LISTENING HISTORY SYNC
 // ========================================
 
-async function syncRecentlyPlayed(env) {
+async function syncRecentlyPlayed(env, force = false) {
+  const now = Date.now();
+
+  if (!force) {
+    const lastSync = Number(
+      await env.PRESENCE.get(
+        "spotify_sync_last_attempt"
+      ) || 0
+    );
+
+    if (
+      lastSync &&
+      now - lastSync < HISTORY_SYNC_COOLDOWN * 1000
+    ) {
+      return 0;
+    }
+  }
+
+  await env.PRESENCE.put(
+    "spotify_sync_last_attempt",
+    String(now),
+    { expirationTtl: 120 }
+  );
+
   const last = await env.PRESENCE.get(
     "spotify_last_played"
   );
@@ -446,7 +572,7 @@ async function syncRecentlyPlayed(env) {
 
   let newest = last ? Number(last) : 0;
 
-  for (const entry of items.reverse()) {
+  for (const entry of [...items].reverse()) {
     const track = entry.track;
 
     if (!track?.id || !entry.played_at) {
@@ -533,9 +659,19 @@ async function listeningStats(env, period) {
     period = "overall";
   }
 
+  // Saat Stats dibuka, periksa lagu aktif juga.
+  // Kandidat masuk ke listening_pending.
+  try {
+    await getLivePlayback(env);
+  } catch (error) {
+    console.error("Live detection error:", error);
+  }
+
+  // Sinkronisasi permanen dengan cooldown.
   await syncRecentlyPlayed(env);
 
   const cutoff = periodCutoff(period);
+
   const where = cutoff
     ? "WHERE played_at >= ?"
     : "";
@@ -580,7 +716,6 @@ async function listeningStats(env, period) {
     LIMIT 10
   `).bind(...bind).all();
 
-  // Add Spotify artist artwork.
   const artistsWithImages = await attachArtistImages(
     topArtists.results || [],
     env
@@ -614,6 +749,11 @@ async function listeningStats(env, period) {
     LIMIT 10
   `).bind(...bind).all();
 
+  const pending = await env.DB.prepare(`
+    SELECT COUNT(*) AS pendingCandidates
+    FROM listening_pending
+  `).first();
+
   return json({
     ok: true,
     period,
@@ -625,6 +765,7 @@ async function listeningStats(env, period) {
     topArtists: artistsWithImages,
     topAlbums: topAlbums.results || [],
     recentTracks: recent.results || [],
+    pendingCandidates: pending?.pendingCandidates || 0,
     lastUpdated: new Date().toISOString()
   });
 }
@@ -906,16 +1047,20 @@ export default {
       }
 
       if (path === "/api/sync-history") {
-        await syncRecentlyPlayed(env);
+        const count = await syncRecentlyPlayed(env);
 
-        return json({ ok: true });
+        return json({
+          ok: true,
+          synced: count
+        });
       }
 
       if (path === "/api/health") {
         return json({
           ok: true,
           service: "LUXX Live Listening",
-          provider: "Spotify"
+          provider: "Spotify",
+          hybridSync: true
         });
       }
 
@@ -942,7 +1087,7 @@ export default {
 
   async scheduled(event, env, ctx) {
     ctx.waitUntil(
-      syncRecentlyPlayed(env).catch(error => {
+      syncRecentlyPlayed(env, true).catch(error => {
         console.error("Spotify sync:", error);
       })
     );

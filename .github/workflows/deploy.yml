@@ -1,3 +1,4 @@
+
 name: Deploy LUXX Live Listening
 
 on:
@@ -8,22 +9,29 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
 
       - name: Install dependencies
         run: npm install
 
-      - name: Deploy Worker and static assets
+      - name: Deploy Worker
         run: npx wrangler deploy --config ./wrangler.jsonc
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Upload Last.fm secrets
+        run: |
+          printf '%s' "$LASTFM_API_KEY" | npx wrangler secret put LASTFM_API_KEY --config ./wrangler.jsonc
+          printf '%s' "$LASTFM_USER" | npx wrangler secret put LASTFM_USER --config ./wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
+          LASTFM_USER: ${{ secrets.LASTFM_USER }}

@@ -4,6 +4,8 @@ const SESSION_SECONDS = 8 * 60 * 60;
 const SPOTIFY_API = "https://api.spotify.com/v1";
 const SPOTIFY_AUTH = "https://accounts.spotify.com";
 
+const ARTIST_IMAGE_CACHE_SECONDS = 30 * 24 * 60 * 60;
+
 // ========================================
 // RESPONSE
 // ========================================
@@ -309,6 +311,101 @@ function mapTrack(track) {
 }
 
 // ========================================
+// ARTIST IMAGES
+// ========================================
+
+async function attachArtistImages(artists, env) {
+  if (!Array.isArray(artists) || !artists.length) {
+    return artists || [];
+  }
+
+  const result = artists.map(artist => ({
+    ...artist,
+    image: ""
+  }));
+
+  const missingIds = [];
+
+  // Read cached artist images from KV.
+  await Promise.all(
+    result.map(async (artist, index) => {
+      if (!artist.id) return;
+
+      try {
+        const cached = await env.PRESENCE.get(
+          `spotify_artist_image:${artist.id}`
+        );
+
+        if (cached !== null) {
+          result[index].image =
+            cached === "none" ? "" : cached;
+        } else {
+          missingIds.push(artist.id);
+        }
+      } catch (error) {
+        console.error("Artist image cache:", error);
+        missingIds.push(artist.id);
+      }
+    })
+  );
+
+  if (!missingIds.length) {
+    return result;
+  }
+
+  // Spotify supports multiple artist IDs in one request.
+  // Keep requests in batches of 50.
+  for (let i = 0; i < missingIds.length; i += 50) {
+    const batch = missingIds.slice(i, i + 50);
+
+    try {
+      const data = await spotifyFetch(
+        `/artists?ids=${encodeURIComponent(batch.join(","))}`,
+        env
+      );
+
+      const spotifyArtists = data?.artists || [];
+
+      await Promise.all(
+        spotifyArtists.map(async artist => {
+          if (!artist?.id) return;
+
+          const image = artist.images?.[0]?.url || "";
+
+          try {
+            await env.PRESENCE.put(
+              `spotify_artist_image:${artist.id}`,
+              image || "none",
+              {
+                expirationTtl: image
+                  ? ARTIST_IMAGE_CACHE_SECONDS
+                  : 86400
+              }
+            );
+          } catch (error) {
+            console.error("Artist image save:", error);
+          }
+
+          const target = result.find(
+            item => item.id === artist.id
+          );
+
+          if (target) {
+            target.image = image;
+          }
+        })
+      );
+
+    } catch (error) {
+      // Image lookup failure must not break statistics.
+      console.error("Spotify artist images:", error);
+    }
+  }
+
+  return result;
+}
+
+// ========================================
 // NOW PLAYING
 // ========================================
 
@@ -506,6 +603,12 @@ async function listeningStats(env, period) {
     LIMIT 10
   `).bind(...bind).all();
 
+  // Add Spotify artist artwork.
+  const artistsWithImages = await attachArtistImages(
+    topArtists.results || [],
+    env
+  );
+
   const topAlbums = await env.DB.prepare(`
     SELECT
       album_id AS id,
@@ -542,7 +645,7 @@ async function listeningStats(env, period) {
       ...totals
     },
     topTracks: topTracks.results || [],
-    topArtists: topArtists.results || [],
+    topArtists: artistsWithImages,
     topAlbums: topAlbums.results || [],
     recentTracks: recent.results || [],
     lastUpdated: new Date().toISOString()

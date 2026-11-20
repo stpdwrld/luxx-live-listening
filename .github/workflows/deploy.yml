@@ -1,4 +1,3 @@
-
 name: Deploy LUXX to Cloudflare
 
 on:
@@ -15,9 +14,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy worker/index.js --name luxx-live-listening
+          wranglerVersion: "4"
+          command: deploy

@@ -37,10 +37,9 @@ async function refresh() {
   isRefreshing = true;
 
   try {
-    const response = await fetch(
-      "/api/now-playing",
-      { cache: "no-store" }
-    );
+    const response = await fetch("/api/now-playing", {
+      cache: "no-store"
+    });
 
     const data = await response.json();
 
@@ -52,7 +51,6 @@ async function refresh() {
       showOffline();
     } else {
       const t = data.track;
-
       const key = `${t.title}|${t.artist}|${t.album}`;
 
       setStatus(true, "LIVE NOW");
@@ -61,17 +59,10 @@ async function refresh() {
       if (key !== lastTrackKey) {
         lastTrackKey = key;
 
-        $("track-title").textContent =
-          t.title || "Unknown track";
-
-        $("track-artist").textContent =
-          t.artist || "Unknown artist";
-
-        $("track-album").textContent =
-          t.album || "";
-
-        $("cover").src =
-          t.image || "/cover-placeholder.svg";
+        $("track-title").textContent = t.title || "Unknown track";
+        $("track-artist").textContent = t.artist || "Unknown artist";
+        $("track-album").textContent = t.album || "";
+        $("cover").src = t.image || "/cover-placeholder.svg";
 
         if (t.url) {
           $("lastfm-link").href = t.url;
@@ -88,7 +79,6 @@ async function refresh() {
         hour: "2-digit",
         minute: "2-digit"
       });
-
   } catch (error) {
     showError(error.message);
   } finally {
@@ -96,13 +86,9 @@ async function refresh() {
   }
 }
 
-// Update immediately
 refresh();
-
-// Automatic update every 5 seconds
 setInterval(refresh, POLL_MS);
 
-// Update immediately when visitor returns to the website
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) refresh();
 });

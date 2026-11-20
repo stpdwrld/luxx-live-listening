@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -8,12 +9,9 @@
 
   <title>LUXX — Live Listening</title>
 
-  <!-- FAVICON LUXX -->
-  <link
-    rel="icon"
-    type="image/png"
-    href="https://raw.githubusercontent.com/stpdwrld/bahanprof/main/logo.png"
-  >
+  <!-- FAVICON -->
+  <link rel="icon" type="image/png"
+    href="https://raw.githubusercontent.com/stpdwrld/bahanprof/main/logo.png">
 
   <!-- PRECONNECT -->
   <link rel="preconnect" href="https://ws.audioscrobbler.com">
@@ -21,49 +19,178 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
   <!-- FONTS -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&family=Inter:wght@300;400;500&family=Playfair+Display:ital,wght@0,400;0,500;1,400&display=swap"
-    rel="stylesheet"
-  >
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
 
   <!-- CSS -->
   <link rel="stylesheet" href="/style.css">
 </head>
-</head>
+
 <body>
   <main class="shell">
+
+    <!-- HEADER -->
     <header class="topbar">
       <a class="brand" href="/">LUXX<span>.</span></a>
-      <div class="live-indicator"><i id="status-dot"></i><span id="status-label">CHECKING</span></div>
+
+      <div class="live-indicator">
+        <i id="status-dot"></i>
+        <span id="status-label">CHECKING</span>
+      </div>
     </header>
 
-    <section class="hero">
-      <p class="eyebrow">PERSONAL LISTENING ROOM</p>
-      <h1>Currently<br><span>listening.</span></h1>
-      <p class="intro">A live window into what’s playing right now.</p>
-    </section>
+    <!-- MAIN PLAYER -->
+    <section class="main-content">
 
-    <section class="player-card" aria-live="polite">
       <div class="cover-wrap">
         <img id="cover" src="/cover-placeholder.svg" alt="Album artwork">
         <div class="cover-glow"></div>
       </div>
+
       <div class="track-info">
-        <p class="eyebrow" id="play-state">WAITING FOR MUSIC</p>
+
+        <div class="track-state">
+          <span class="live-badge">LIVE</span>
+          <p class="eyebrow" id="play-state">WAITING FOR MUSIC</p>
+        </div>
+
         <h2 id="track-title">Nothing playing</h2>
-        <p id="track-artist" class="artist">When playback starts, it will appear here.</p>
+
+        <p id="track-artist" class="artist">
+          When playback starts, it will appear here.
+        </p>
+
         <p id="track-album" class="album"></p>
-        <a id="lastfm-link" class="track-link" href="#" target="_blank" rel="noreferrer" hidden>OPEN ON LAST.FM ↗</a>
+
+        <a id="lastfm-link"
+          class="track-link"
+          href="#"
+          target="_blank"
+          rel="noreferrer"
+          hidden>
+          OPEN ON LAST.FM ↗
+        </a>
+
       </div>
+
+      <!-- VISUALIZER -->
+      <section class="visualizer-section">
+
+        <div class="visualizer" id="visualizer" aria-hidden="true"></div>
+
+        <div class="visualizer-caption">
+          <span></span>
+          <p>LISTENING TO</p>
+          <span></span>
+        </div>
+
+      </section>
+
     </section>
 
-    <section class="bottom-row">
-      <div><span class="meta-label">SOURCE</span><strong>LAST.FM · PANO SCROBBLER</strong></div>
-      <div><span class="meta-label">STATUS</span><strong id="updated">Waiting for update</strong></div>
-    </section>
+    <!-- BOTTOM PLAYER -->
+    <footer class="bottom-player">
 
-    <footer><span>LUXX LIVE LISTENING</span><span>MADE FOR THE LOVE OF MUSIC.</span></footer>
+      <div class="mini-track">
+        <img id="mini-cover" src="/cover-placeholder.svg" alt="">
+
+        <div class="mini-info">
+          <h3 id="mini-title">Nothing playing</h3>
+          <p id="mini-artist">LUXX LIVE LISTENING</p>
+        </div>
+      </div>
+
+      <div class="bottom-right">
+        <span class="updated" id="updated">Waiting for update</span>
+
+        <a id="bottom-link"
+          class="bottom-link"
+          href="#"
+          target="_blank"
+          rel="noreferrer"
+          hidden>
+          OPEN ON LAST.FM ↗
+        </a>
+      </div>
+
+    </footer>
+
   </main>
+
   <script src="/script.js" defer></script>
+
+  <!-- VISUALIZER + MINI PLAYER -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+
+      const $ = id => document.getElementById(id);
+
+      const visualizer = $("visualizer");
+      const cover = $("cover");
+      const title = $("track-title");
+      const artist = $("track-artist");
+      const playState = $("play-state");
+      const lastfmLink = $("lastfm-link");
+
+      // CREATE EQUALIZER
+      for (let i = 0; i < 35; i++) {
+        const bar = document.createElement("span");
+
+        bar.style.setProperty(
+          "--bar-height",
+          `${15 + Math.random() * 85}%`
+        );
+
+        bar.style.setProperty(
+          "--duration",
+          `${0.45 + Math.random() * 0.8}s`
+        );
+
+        bar.style.setProperty(
+          "--delay",
+          `${Math.random() * -1.5}s`
+        );
+
+        visualizer.appendChild(bar);
+      }
+
+      // SYNC PLAYER DISPLAY
+      function syncPlayer() {
+        const playing = playState.textContent === "NOW PLAYING";
+
+        visualizer.classList.toggle("is-playing", playing);
+
+        $("mini-title").textContent = title.textContent;
+
+        $("mini-artist").textContent = playing
+          ? artist.textContent
+          : "LUXX LIVE LISTENING";
+
+        $("mini-cover").src = cover.src;
+
+        if (!lastfmLink.hidden) {
+          $("bottom-link").href = lastfmLink.href;
+          $("bottom-link").hidden = false;
+        } else {
+          $("bottom-link").hidden = true;
+        }
+      }
+
+      const observer = new MutationObserver(syncPlayer);
+
+      [playState, cover, title, artist, lastfmLink].forEach(element => {
+        observer.observe(element, {
+          childList: true,
+          characterData: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["src", "href", "hidden"]
+        });
+      });
+
+      syncPlayer();
+    });
+  </script>
+
 </body>
 </html>

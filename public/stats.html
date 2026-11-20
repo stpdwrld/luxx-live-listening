@@ -383,6 +383,11 @@
 
     const placeholder = "/cover-placeholder.svg";
 
+    const REFRESH_INTERVAL = 30000;
+
+    let isLoading = false;
+    let refreshTimer = null;
+
     function number(value) {
       return Number(value || 0).toLocaleString("en-US");
     }
@@ -412,7 +417,7 @@
 
       const image = document.createElement("img");
       image.className = "music-image";
-      image.src = item.image || placeholder;
+      image.src = item.image || item.image_url || placeholder;
       image.alt = "";
       image.loading = "lazy";
 
@@ -431,6 +436,7 @@
         item.name ||
         item.title ||
         item.track_name ||
+        item.album_name ||
         "Unknown";
 
       title.textContent = name;
@@ -451,13 +457,6 @@
 
       info.append(title, subtitle);
 
-      if (item.nowPlaying) {
-        const tag = document.createElement("div");
-        tag.className = "now-playing-tag";
-        tag.textContent = "NOW PLAYING";
-        info.appendChild(tag);
-      }
-
       const plays = document.createElement("div");
       plays.className = "music-plays";
 
@@ -475,10 +474,12 @@
         plays.appendChild(small);
       }
 
-      if (item.url) {
+      const url = item.url || item.spotify_url;
+
+      if (url) {
         const link = document.createElement("a");
         link.className = "music-link";
-        link.href = item.url;
+        link.href = url;
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         link.appendChild(info);
@@ -503,7 +504,11 @@
         return;
       }
 
-      items.forEach((item, index) => {
+      const visibleItems = type === "recent"
+        ? items.slice(0, 10)
+        : items.slice(0, 10);
+
+      visibleItems.forEach((item, index) => {
         container.appendChild(
           makeItem(item, index, type)
         );
@@ -511,12 +516,19 @@
     }
 
     async function loadStats() {
-      $("connection-status").textContent = "UPDATING...";
+      if (isLoading || document.hidden) return;
+
+      isLoading = true;
 
       try {
         const response = await fetch(
           "/api/listening-stats?period=overall",
-          { cache: "no-store" }
+          {
+            cache: "no-store",
+            headers: {
+              "Accept": "application/json"
+            }
+          }
         );
 
         const data = await response.json();
@@ -555,7 +567,8 @@
         $("last-updated").textContent =
           "UPDATED " + new Date().toLocaleTimeString([], {
             hour: "2-digit",
-            minute: "2-digit"
+            minute: "2-digit",
+            second: "2-digit"
           });
 
       } catch (error) {
@@ -563,14 +576,32 @@
           "CONNECTION ERROR";
 
         console.error("Spotify stats:", error);
+
+      } finally {
+        isLoading = false;
       }
     }
 
+    function startAutoRefresh() {
+      clearInterval(refreshTimer);
+
+      refreshTimer = setInterval(() => {
+        if (!document.hidden) {
+          loadStats();
+        }
+      }, REFRESH_INTERVAL);
+    }
+
     loadStats();
+    startAutoRefresh();
 
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) loadStats();
+      if (!document.hidden) {
+        loadStats();
+      }
     });
+
+    window.addEventListener("online", loadStats);
   </script>
 </body>
 </html>

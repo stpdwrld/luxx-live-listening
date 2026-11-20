@@ -1,4 +1,3 @@
-
 const $ = (id) => document.getElementById(id);
 
 const POLL_MS = 5000;

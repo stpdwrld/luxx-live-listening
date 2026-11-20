@@ -1,30 +1,39 @@
-const LASTFM_ENDPOINT = "https://ws.audioscrobbler.com/2.0/";
+
 const COOKIE_NAME = "luxx_admin";
 const SESSION_SECONDS = 8 * 60 * 60;
+const SPOTIFY_API = "https://api.spotify.com/v1";
+const SPOTIFY_AUTH = "https://accounts.spotify.com";
 
-function json(data, status = 200, extraHeaders = {}) {
+// ========================================
+// RESPONSE
+// ========================================
+
+function json(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store, max-age=0",
-      "x-content-type-options": "nosniff",
-      ...extraHeaders
+      "cache-control": "no-store",
+      ...headers
     }
   });
 }
 
 function base64url(bytes) {
-  let binary = "";
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  return btoa(String.fromCharCode(...new Uint8Array(bytes)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 function fromBase64url(value) {
-  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
-  const padded = normalized + "=".repeat((4 - normalized.length % 4) % 4);
-  return Uint8Array.from(atob(padded), c => c.charCodeAt(0));
+  const b = value.replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(b), c => c.charCodeAt(0));
 }
+
+// ========================================
+// ADMIN SESSION
+// ========================================
 
 async function sign(value, secret) {
   const key = await crypto.subtle.importKey(
@@ -35,47 +44,55 @@ async function sign(value, secret) {
     ["sign"]
   );
 
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(value)
+  return base64url(
+    await crypto.subtle.sign(
+      "HMAC",
+      key,
+      new TextEncoder().encode(value)
+    )
   );
-
-  return base64url(new Uint8Array(signature));
 }
 
 async function createSession(env) {
-  const expires = Math.floor(Date.now() / 1000) + SESSION_SECONDS;
-  const signature = await sign(String(expires), env.ADMIN_SESSION_SECRET);
-  return `${expires}.${signature}`;
+  const payload = base64url(
+    new TextEncoder().encode(JSON.stringify({
+      exp: Date.now() + SESSION_SECONDS * 1000
+    }))
+  );
+
+  return payload + "." +
+    await sign(payload, env.ADMIN_SESSION_SECRET);
 }
 
 async function verifySession(request, env) {
-  if (!env.ADMIN_SESSION_SECRET) return false;
-
   const cookie = request.headers.get("Cookie") || "";
-  const match = cookie.match(new RegExp(`(?:^|;\\s*)${COOKIE_NAME}=([^;]+)`));
 
-  if (!match) return false;
+  const token = cookie.split(";")
+    .map(v => v.trim())
+    .find(v => v.startsWith(COOKIE_NAME + "="))
+    ?.slice(COOKIE_NAME.length + 1);
 
-  const [expiresText, signature] = match[1].split(".");
-  const expires = Number(expiresText);
+  if (!token) return false;
 
-  if (!Number.isSafeInteger(expires) || expires <= Math.floor(Date.now() / 1000)) {
-    return false;
-  }
+  const [payload, signature] = token.split(".");
 
-  const expected = await sign(String(expires), env.ADMIN_SESSION_SECRET);
+  if (!payload || !signature) return false;
+
+  const expected = await sign(
+    payload,
+    env.ADMIN_SESSION_SECRET
+  );
+
+  if (signature !== expected) return false;
 
   try {
-    const a = fromBase64url(signature);
-    const b = fromBase64url(expected);
+    const data = JSON.parse(
+      new TextDecoder().decode(
+        fromBase64url(payload)
+      )
+    );
 
-    if (a.length !== b.length) return false;
-
-    let diff = 0;
-    for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
-    return diff === 0;
+    return data.exp > Date.now();
   } catch {
     return false;
   }
@@ -93,25 +110,207 @@ function checkOrigin(request, url) {
   return request.headers.get("Origin") === url.origin;
 }
 
-function imageFrom(track) {
-  const images = Array.isArray(track?.image) ? track.image : [];
-  const preferred = ["extralarge", "large", "medium", "small"];
+// ========================================
+// ENCRYPTION
+// ========================================
 
-  for (const size of preferred) {
-    const found = images.find(item => item?.size === size && item?.["#text"]);
-    if (found) return found["#text"];
-  }
+async function encryptionKey(env) {
+  const raw = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(
+      env.SPOTIFY_TOKEN_ENCRYPTION_KEY
+    )
+  );
 
-  return images.find(item => item?.["#text"])?.["#text"] || "";
+  return crypto.subtle.importKey(
+    "raw",
+    raw,
+    "AES-GCM",
+    false,
+    ["encrypt", "decrypt"]
+  );
 }
 
-function textValue(value) {
-  if (typeof value === "string") return value;
-  if (value && typeof value === "object") {
-    return value["#text"] || value.name || "";
-  }
-  return "";
+async function encryptToken(token, env) {
+  const key = await encryptionKey(env);
+  const iv = crypto.getRandomValues(
+    new Uint8Array(12)
+  );
+
+  const encrypted = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    new TextEncoder().encode(token)
+  );
+
+  return JSON.stringify({
+    iv: base64url(iv),
+    data: base64url(encrypted)
+  });
 }
+
+async function decryptToken(value, env) {
+  const saved = JSON.parse(value);
+  const key = await encryptionKey(env);
+
+  const decrypted = await crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv: fromBase64url(saved.iv)
+    },
+    key,
+    fromBase64url(saved.data)
+  );
+
+  return new TextDecoder().decode(decrypted);
+}
+
+async function saveRefreshToken(token, env) {
+  const encrypted = await encryptToken(token, env);
+
+  await env.DB.prepare(`
+    INSERT INTO spotify_auth (
+      id,
+      encrypted_refresh_token,
+      updated_at
+    )
+    VALUES (1, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(id) DO UPDATE SET
+      encrypted_refresh_token = excluded.encrypted_refresh_token,
+      updated_at = CURRENT_TIMESTAMP
+  `).bind(encrypted).run();
+}
+
+// ========================================
+// SPOTIFY TOKEN
+// ========================================
+
+async function getAccessToken(env) {
+  const cached = await env.PRESENCE.get(
+    "spotify_access_token"
+  );
+
+  if (cached) return cached;
+
+  const saved = await env.DB.prepare(`
+    SELECT encrypted_refresh_token
+    FROM spotify_auth
+    WHERE id = 1
+  `).first();
+
+  if (!saved?.encrypted_refresh_token) {
+    throw new Error("Spotify belum terhubung");
+  }
+
+  const refreshToken = await decryptToken(
+    saved.encrypted_refresh_token,
+    env
+  );
+
+  const basic = btoa(
+    `${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`
+  );
+
+  const response = await fetch(
+    `${SPOTIFY_AUTH}/api/token`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${basic}`,
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: refreshToken
+      })
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data.error_description || "Spotify token gagal"
+    );
+  }
+
+  if (data.refresh_token) {
+    await saveRefreshToken(data.refresh_token, env);
+  }
+
+  await env.PRESENCE.put(
+    "spotify_access_token",
+    data.access_token,
+    {
+      expirationTtl: Math.max(
+        60,
+        data.expires_in - 60
+      )
+    }
+  );
+
+  return data.access_token;
+}
+
+async function spotifyFetch(path, env) {
+  const token = await getAccessToken(env);
+
+  const response = await fetch(
+    `${SPOTIFY_API}${path}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
+
+  if (response.status === 204) return null;
+
+  if (response.status === 401) {
+    await env.PRESENCE.delete(
+      "spotify_access_token"
+    );
+    throw new Error("Spotify authorization expired");
+  }
+
+  if (response.status === 429) {
+    throw new Error("Spotify rate limit. Try again later.");
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Spotify API error: ${response.status}`
+    );
+  }
+
+  return response.json();
+}
+
+// ========================================
+// TRACK FORMAT
+// ========================================
+
+function mapTrack(track) {
+  if (!track) return null;
+
+  const artists = track.artists || [];
+  const album = track.album || {};
+
+  return {
+    id: track.id,
+    title: track.name || "Unknown track",
+    artist: artists.map(a => a.name).join(", "),
+    album: album.name || "",
+    image: album.images?.[0]?.url || "",
+    url: track.external_urls?.spotify || "",
+    duration: track.duration_ms || 0,
+    artists
+  };
+}
+
+// ========================================
+// NOW PLAYING
+// ========================================
 
 function offlineResponse() {
   return json({
@@ -124,345 +323,272 @@ function offlineResponse() {
 }
 
 async function nowPlaying(env) {
-  if (!env.LASTFM_API_KEY || !env.LASTFM_USER) {
-    return json({
-      ok: false,
-      error: "Last.fm belum dikonfigurasi."
-    }, 503);
+  const manual = await env.PRESENCE.get(
+    "manual_status"
+  );
+
+  if (manual === "offline") {
+    return offlineResponse();
   }
 
-  const url = new URL(LASTFM_ENDPOINT);
-  url.search = new URLSearchParams({
-    method: "user.getRecentTracks",
-    user: env.LASTFM_USER,
-    api_key: env.LASTFM_API_KEY,
-    format: "json",
-    limit: "1"
-  }).toString();
+  const data = await spotifyFetch(
+    "/me/player/currently-playing",
+    env
+  );
 
-  const upstream = await fetch(url.toString(), {
-    headers: {
-      "user-agent": "LUXX-Live-Listening/1.0 (Cloudflare Worker)"
-    }
-  });
-
-  if (!upstream.ok) {
-    return json({ ok: false, error: `Last.fm HTTP ${upstream.status}` }, 502);
+  if (!data?.item || !data.is_playing) {
+    return offlineResponse();
   }
-
-  const payload = await upstream.json();
-
-  if (payload.error) {
-    return json({
-      ok: false,
-      error: payload.message || "Last.fm API error"
-    }, 502);
-  }
-
-  const raw = payload?.recenttracks?.track;
-  const track = Array.isArray(raw) ? raw[0] : raw;
-  const playing = track?.["@attr"]?.nowplaying === "true";
-
-  if (!track || !playing) return offlineResponse();
 
   return json({
     ok: true,
     status: "online",
     isPlaying: true,
-    track: {
-      title: textValue(track.name),
-      artist: textValue(track.artist),
-      album: textValue(track.album),
-      image: imageFrom(track),
-      url: track.url || "",
-      startedAt: new Date().toISOString()
-    },
+    track: mapTrack(data.item),
+    progress: data.progress_ms || 0,
     lastUpdated: new Date().toISOString()
   });
 }
 
-async function lastfmRequest(env, params) {
-  const url = new URL(LASTFM_ENDPOINT);
+// ========================================
+// LISTENING HISTORY SYNC
+// ========================================
 
-  url.search = new URLSearchParams({
-    ...params,
-    api_key: env.LASTFM_API_KEY,
-    format: "json"
-  }).toString();
+async function syncRecentlyPlayed(env) {
+  const last = await env.PRESENCE.get(
+    "spotify_last_played"
+  );
 
-  const response = await fetch(url.toString(), {
-    headers: {
-      "user-agent": "LUXX-Live-Listening/1.0 (Cloudflare Worker)"
+  const after = last
+    ? Math.max(0, Number(last) - 60000)
+    : null;
+
+  const path = after
+    ? `/me/player/recently-played?limit=50&after=${after}`
+    : "/me/player/recently-played?limit=50";
+
+  const data = await spotifyFetch(path, env);
+  const items = data?.items || [];
+
+  let newest = last ? Number(last) : 0;
+
+  for (const entry of items.reverse()) {
+    const track = entry.track;
+
+    if (!track?.id || !entry.played_at) {
+      continue;
     }
-  });
 
-  if (!response.ok) {
-    throw new Error(`Last.fm HTTP ${response.status}`);
-  }
+    const artists = track.artists || [];
+    const album = track.album || {};
+    const firstArtist = artists[0] || {};
 
-  const data = await response.json();
-
-  if (data.error) {
-    throw new Error(data.message || "Last.fm API error");
-  }
-
-  return data;
-}
-
-async function trackStats(env) {
-  if (!env.LASTFM_API_KEY || !env.LASTFM_USER) {
-    return json({
-      ok: false,
-      error: "Last.fm belum dikonfigurasi."
-    }, 503);
-  }
-
-  const currentResponse = await nowPlaying(env);
-  const current = await currentResponse.json();
-
-  if (!current.ok) {
-    return json(current, currentResponse.status);
-  }
-
-  if (!current.isPlaying || !current.track) {
-    return json({
-      ok: true,
-      status: "offline",
-      isPlaying: false,
-      track: null,
-      stats: null
-    });
-  }
-
-  const { title, artist } = current.track;
-
-  const [trackData, artistData, userData] = await Promise.all([
-    lastfmRequest(env, {
-      method: "track.getInfo",
-      artist,
-      track: title,
-      username: env.LASTFM_USER
-    }),
-
-    lastfmRequest(env, {
-      method: "artist.getInfo",
-      artist,
-      username: env.LASTFM_USER
-    }),
-
-    lastfmRequest(env, {
-      method: "user.getInfo",
-      user: env.LASTFM_USER
-    })
-  ]);
-
-  return json({
-    ok: true,
-    status: "online",
-    isPlaying: true,
-    track: current.track,
-    stats: {
-      trackPlays: Number(
-        trackData.track?.userplaycount || 0
-      ),
-
-      artistPlays: Number(
-        artistData.artist?.stats?.userplaycount || 0
-      ),
-
-      totalScrobbles: Number(
-        userData.user?.playcount || 0
+    await env.DB.prepare(`
+      INSERT OR IGNORE INTO listening_history (
+        track_id,
+        track_name,
+        artist_id,
+        artist_name,
+        album_id,
+        album_name,
+        image_url,
+        spotify_url,
+        played_at,
+        duration_ms
       )
-    },
-    lastUpdated: new Date().toISOString()
-  });
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      track.id,
+      track.name || "Unknown",
+      firstArtist.id || null,
+      firstArtist.name || "Unknown",
+      album.id || null,
+      album.name || "",
+      album.images?.[0]?.url || "",
+      track.external_urls?.spotify || "",
+      entry.played_at,
+      track.duration_ms || 0
+    ).run();
+
+    const timestamp = new Date(
+      entry.played_at
+    ).getTime();
+
+    newest = Math.max(newest, timestamp);
+  }
+
+  if (newest) {
+    await env.PRESENCE.put(
+      "spotify_last_played",
+      String(newest)
+    );
+  }
+
+  return items.length;
 }
 
+// ========================================
+// STATISTICS
+// ========================================
 
-function statsArray(value) {
-  if (!value) return [];
-  return Array.isArray(value) ? value : [value];
+function periodCutoff(period) {
+  const days = {
+    "7day": 7,
+    "30day": 30,
+    "90day": 90,
+    "6month": 180
+  }[period];
+
+  if (!days) return null;
+
+  return new Date(
+    Date.now() - days * 86400000
+  ).toISOString();
 }
 
-function statsImage(images) {
-  if (!Array.isArray(images)) return "";
-
-  const preferred =
-    images.find(item => item.size === "extralarge") ||
-    images.find(item => item.size === "large") ||
-    images.find(item => item.size === "medium");
-
-  return preferred?.["#text"] || "";
-}
-
-async function listeningStats(env, period = "overall") {
-  const allowedPeriods = [
-    "overall",
+async function listeningStats(env, period) {
+  const allowed = [
     "7day",
-    "1month",
-    "3month",
+    "30day",
+    "90day",
     "6month",
-    "12month"
+    "overall"
   ];
 
-  if (!allowedPeriods.includes(period)) {
+  if (!allowed.includes(period)) {
     period = "overall";
   }
 
-  if (!env.LASTFM_API_KEY || !env.LASTFM_USER) {
-    return json({
-      ok: false,
-      error: "Last.fm belum dikonfigurasi."
-    }, 503);
-  }
+  await syncRecentlyPlayed(env);
 
-  const common = {
-    user: env.LASTFM_USER,
-    period,
-    limit: "10"
-  };
+  const cutoff = periodCutoff(period);
+  const where = cutoff
+    ? "WHERE played_at >= ?"
+    : "";
 
-  const [
-    userData,
-    trackData,
-    albumData,
-    artistData,
-    recentData
-  ] = await Promise.all([
-    lastfmRequest(env, {
-      method: "user.getInfo",
-      user: env.LASTFM_USER
-    }),
+  const bind = cutoff ? [cutoff] : [];
 
-    lastfmRequest(env, {
-      method: "user.getTopTracks",
-      ...common
-    }),
+  const totals = await env.DB.prepare(`
+    SELECT
+      COUNT(*) AS totalPlays,
+      COUNT(DISTINCT artist_id) AS artistCount,
+      COUNT(DISTINCT track_id) AS trackCount,
+      COUNT(DISTINCT album_id) AS albumCount
+    FROM listening_history
+    ${where}
+  `).bind(...bind).first();
 
-    lastfmRequest(env, {
-      method: "user.getTopAlbums",
-      ...common
-    }),
+  const topTracks = await env.DB.prepare(`
+    SELECT
+      track_id AS id,
+      track_name AS name,
+      artist_name AS artist,
+      album_name AS album,
+      image_url AS image,
+      spotify_url AS url,
+      COUNT(*) AS plays
+    FROM listening_history
+    ${where}
+    GROUP BY track_id
+    ORDER BY plays DESC
+    LIMIT 10
+  `).bind(...bind).all();
 
-    lastfmRequest(env, {
-      method: "user.getTopArtists",
-      ...common
-    }),
+  const topArtists = await env.DB.prepare(`
+    SELECT
+      artist_id AS id,
+      artist_name AS name,
+      COUNT(*) AS plays
+    FROM listening_history
+    ${where}
+    GROUP BY artist_id
+    ORDER BY plays DESC
+    LIMIT 10
+  `).bind(...bind).all();
 
-    lastfmRequest(env, {
-      method: "user.getRecentTracks",
-      user: env.LASTFM_USER,
-      limit: "10"
-    })
-  ]);
+  const topAlbums = await env.DB.prepare(`
+    SELECT
+      album_id AS id,
+      album_name AS name,
+      artist_name AS artist,
+      image_url AS image,
+      COUNT(*) AS plays
+    FROM listening_history
+    ${where}
+    GROUP BY album_id
+    ORDER BY plays DESC
+    LIMIT 10
+  `).bind(...bind).all();
 
-  const topTracks = statsArray(trackData.toptracks?.track)
-    .map((item, index) => ({
-      rank: index + 1,
-      name: item.name || "Unknown track",
-      artist: item.artist?.name || "Unknown artist",
-      plays: Number(item.playcount || 0),
-      image: statsImage(item.image),
-      url: item.url || ""
-    }));
-
-  const topAlbums = statsArray(albumData.topalbums?.album)
-    .map((item, index) => ({
-      rank: index + 1,
-      name: item.name || "Unknown album",
-      artist: item.artist?.name || "Unknown artist",
-      plays: Number(item.playcount || 0),
-      image: statsImage(item.image),
-      url: item.url || ""
-    }));
-
-  const topArtists = statsArray(artistData.topartists?.artist)
-    .map((item, index) => ({
-      rank: index + 1,
-      name: item.name || "Unknown artist",
-      plays: Number(item.playcount || 0),
-      image: statsImage(item.image),
-      url: item.url || ""
-    }));
-
-  const recentTracks = statsArray(recentData.recenttracks?.track)
-    .map(item => ({
-      name: item.name || "Unknown track",
-      artist: item.artist?.["#text"] || item.artist?.name || "Unknown artist",
-      album: item.album?.["#text"] || "",
-      image: statsImage(item.image),
-      url: item.url || "",
-      nowPlaying: item["@attr"]?.nowplaying === "true",
-      date: item.date?.["#text"] || ""
-    }));
+  const recent = await env.DB.prepare(`
+    SELECT
+      track_name AS name,
+      artist_name AS artist,
+      album_name AS album,
+      image_url AS image,
+      spotify_url AS url,
+      played_at AS date
+    FROM listening_history
+    ${where}
+    ORDER BY played_at DESC
+    LIMIT 20
+  `).bind(...bind).all();
 
   return json({
     ok: true,
     period,
     user: {
-      name: userData.user?.name || env.LASTFM_USER,
-      totalScrobbles: Number(userData.user?.playcount || 0),
-      artistCount: Number(userData.user?.artist_count || 0),
-      trackCount: Number(userData.user?.track_count || 0),
-      albumCount: Number(userData.user?.album_count || 0),
-      url: userData.user?.url || ""
+      name: "Spotify User",
+      ...totals
     },
-    topTracks,
-    topAlbums,
-    topArtists,
-    recentTracks,
+    topTracks: topTracks.results || [],
+    topArtists: topArtists.results || [],
+    topAlbums: topAlbums.results || [],
+    recentTracks: recent.results || [],
     lastUpdated: new Date().toISOString()
   });
 }
 
-async function adminAPI(request, env, url) {
-  if (request.method === "POST" && !checkOrigin(request, url)) {
-    return json({ ok: false, error: "Invalid origin" }, 403);
-  }
+// ========================================
+// ADMIN API
+// ========================================
 
-  if (url.pathname === "/api/admin/login") {
-    if (request.method !== "POST") {
-      return json({ ok: false, error: "Method not allowed" }, 405);
+async function adminAPI(request, url, env) {
+  const path = url.pathname;
+
+  if (
+    path === "/api/admin/login" &&
+    request.method === "POST"
+  ) {
+    if (!checkOrigin(request, url)) {
+      return json(
+        { ok: false, error: "Invalid origin" },
+        403
+      );
     }
 
-    if (!env.ADMIN_USERNAME || !env.ADMIN_PASSWORD || !env.ADMIN_SESSION_SECRET) {
-      return json({ ok: false, error: "Admin belum dikonfigurasi." }, 503);
-    }
+    const body = await request.json();
 
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return json({ ok: false, error: "Data login tidak valid." }, 400);
-    }
-
-    if (
-      typeof body.username !== "string" ||
-      typeof body.password !== "string" ||
-      body.username !== env.ADMIN_USERNAME ||
-      body.password !== env.ADMIN_PASSWORD
-    ) {
-      return json({ ok: false, error: "Username atau password salah." }, 401);
+    if (body.password !== env.ADMIN_PASSWORD) {
+      return json(
+        { ok: false, error: "Wrong password" },
+        401
+      );
     }
 
     const token = await createSession(env);
 
     return json(
-      { ok: true, message: "Login berhasil." },
+      { ok: true },
       200,
       { "Set-Cookie": sessionCookie(token) }
     );
   }
 
-  if (url.pathname === "/api/admin/logout") {
-    if (request.method !== "POST") {
-      return json({ ok: false, error: "Method not allowed" }, 405);
-    }
-
-    if (!(await verifySession(request, env))) {
-      return json({ ok: false, error: "Unauthorized" }, 401);
-    }
-
+  if (
+    path === "/api/admin/logout" &&
+    request.method === "POST"
+  ) {
     return json(
       { ok: true },
       200,
@@ -470,150 +596,275 @@ async function adminAPI(request, env, url) {
     );
   }
 
-  if (
-    url.pathname === "/api/admin/status" &&
-    (request.method === "GET" || request.method === "POST")
-  ) {
-    if (!(await verifySession(request, env))) {
-      return json({ ok: false, error: "Unauthorized" }, 401);
-    }
+  if (!await verifySession(request, env)) {
+    return json(
+      { ok: false, error: "Unauthorized" },
+      401
+    );
+  }
 
+  if (path === "/api/admin/status") {
     if (request.method === "GET") {
-      const mode = await env.PRESENCE.get("manual_status");
       return json({
         ok: true,
-        mode: mode === "offline" ? "offline" : "auto"
+        status:
+          await env.PRESENCE.get("manual_status") ||
+          "auto"
       });
     }
 
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return json({ ok: false, error: "Data tidak valid." }, 400);
-    }
+    if (request.method === "POST") {
+      if (!checkOrigin(request, url)) {
+        return json(
+          { ok: false, error: "Invalid origin" },
+          403
+        );
+      }
 
-    if (body.status === "offline") {
-      await env.PRESENCE.put("manual_status", "offline");
-    } else if (body.status === "auto") {
-      await env.PRESENCE.delete("manual_status");
-    } else {
-      return json({ ok: false, error: "Status tidak dikenal." }, 400);
+      const body = await request.json();
+
+      const status = [
+        "auto",
+        "online",
+        "offline"
+      ].includes(body.status)
+        ? body.status
+        : "auto";
+
+      await env.PRESENCE.put(
+        "manual_status",
+        status
+      );
+
+      return json({ ok: true, status });
     }
+  }
+
+  if (path === "/api/admin/spotify/connect") {
+    const state = base64url(
+      crypto.getRandomValues(new Uint8Array(24))
+    );
+
+    await env.PRESENCE.put(
+      `spotify_oauth_state:${state}`,
+      "valid",
+      { expirationTtl: 600 }
+    );
+
+    const scope = [
+      "user-read-playback-state",
+      "user-read-currently-playing",
+      "user-read-recently-played",
+      "user-top-read"
+    ].join(" ");
+
+    const authUrl = new URL(
+      `${SPOTIFY_AUTH}/authorize`
+    );
+
+    authUrl.search = new URLSearchParams({
+      client_id: env.SPOTIFY_CLIENT_ID,
+      response_type: "code",
+      redirect_uri: env.SPOTIFY_REDIRECT_URI,
+      scope,
+      state
+    });
 
     return json({
       ok: true,
-      mode: body.status
+      url: authUrl.toString()
     });
   }
 
-  return json({ ok: false, error: "Not found" }, 404);
+  if (path === "/api/admin/spotify/status") {
+    const saved = await env.DB.prepare(`
+      SELECT id
+      FROM spotify_auth
+      WHERE id = 1
+    `).first();
+
+    return json({
+      ok: true,
+      connected: !!saved
+    });
+  }
+
+  return json(
+    { ok: false, error: "Not found" },
+    404
+  );
 }
+
+// ========================================
+// SPOTIFY OAUTH CALLBACK
+// ========================================
+
+async function spotifyCallback(request, url, env) {
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state");
+  const error = url.searchParams.get("error");
+
+  if (error) {
+    return new Response(
+      "Spotify connection cancelled.",
+      { status: 400 }
+    );
+  }
+
+  if (!code || !state) {
+    return new Response(
+      "Missing OAuth parameters.",
+      { status: 400 }
+    );
+  }
+
+  const key = `spotify_oauth_state:${state}`;
+  const valid = await env.PRESENCE.get(key);
+
+  if (!valid) {
+    return new Response(
+      "Invalid or expired OAuth state.",
+      { status: 403 }
+    );
+  }
+
+  await env.PRESENCE.delete(key);
+
+  const basic = btoa(
+    `${env.SPOTIFY_CLIENT_ID}:${env.SPOTIFY_CLIENT_SECRET}`
+  );
+
+  const response = await fetch(
+    `${SPOTIFY_AUTH}/api/token`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${basic}`,
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: env.SPOTIFY_REDIRECT_URI
+      })
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok || !data.refresh_token) {
+    return new Response(
+      "Spotify authorization failed.",
+      { status: 400 }
+    );
+  }
+
+  await saveRefreshToken(
+    data.refresh_token,
+    env
+  );
+
+  await env.PRESENCE.put(
+    "spotify_access_token",
+    data.access_token,
+    {
+      expirationTtl: Math.max(
+        60,
+        data.expires_in - 60
+      )
+    }
+  );
+
+  return Response.redirect(
+    new URL("/panel/?spotify=connected", url),
+    302
+  );
+}
+
+// ========================================
+// MAIN WORKER
+// ========================================
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const path = url.pathname;
 
-    if (url.pathname === "/panel") {
-      return Response.redirect(`${url.origin}/panel/`, 301);
-    }
-
-    if (url.pathname.startsWith("/api/admin/")) {
-      try {
-        return await adminAPI(request, env, url);
-      } catch {
-        return json({ ok: false, error: "Admin API error." }, 500);
-      }
-    }
-
-    if (url.pathname === "/api/now-playing") {
-      if (request.method !== "GET") {
-        return json({ ok: false, error: "Method not allowed" }, 405);
+    try {
+      if (path === "/panel") {
+        return Response.redirect(
+          new URL("/panel/", url),
+          301
+        );
       }
 
-      try {
-        const manual = await env.PRESENCE.get("manual_status");
-        if (manual === "offline") return offlineResponse();
+      if (path.startsWith("/api/admin/")) {
+        return adminAPI(request, url, env);
+      }
+
+      if (path === "/api/spotify/callback") {
+        return spotifyCallback(request, url, env);
+      }
+
+      if (path === "/api/now-playing") {
+        const manual = await env.PRESENCE.get(
+          "manual_status"
+        );
+
+        if (manual === "offline") {
+          return offlineResponse();
+        }
+
         return await nowPlaying(env);
-      } catch {
-        return json({
-          ok: false,
-          error: "Tidak bisa mengambil data saat ini."
-        }, 502);
       }
-    }
-    
-if (url.pathname === "/api/track-stats") {
-  if (request.method !== "GET") {
-    return json({
-      ok: false,
-      error: "Method not allowed"
-    }, 405);
-  }
 
-  try {
-    const manual = await env.PRESENCE.get("manual_status");
+      if (path === "/api/listening-stats") {
+        const period =
+          url.searchParams.get("period") || "overall";
 
-    if (manual === "offline") {
+        return await listeningStats(env, period);
+      }
+
+      if (path === "/api/sync-history") {
+        await syncRecentlyPlayed(env);
+
+        return json({ ok: true });
+      }
+
+      if (path === "/api/health") {
+        return json({
+          ok: true,
+          service: "LUXX Live Listening",
+          provider: "Spotify"
+        });
+      }
+
+      if (path === "/stats" || path === "/stats/") {
+        return env.ASSETS.fetch(
+          new Request(
+            new URL("/stats.html", url),
+            request
+          )
+        );
+      }
+
+      return env.ASSETS.fetch(request);
+
+    } catch (error) {
+      console.error("LUXX Worker:", error);
+
       return json({
-        ok: true,
-        status: "offline",
-        isPlaying: false,
-        track: null,
-        stats: null
-      });
+        ok: false,
+        error: error.message || "Internal server error"
+      }, 500);
     }
+  },
 
-    return await trackStats(env);
-  } catch {
-    return json({
-      ok: false,
-      error: "Tidak bisa mengambil statistik Last.fm."
-    }, 502);
-  }
-}
-
-    // LISTENING STATS API
-if (url.pathname === "/api/listening-stats") {
-  if (request.method !== "GET") {
-    return json({
-      ok: false,
-      error: "Method not allowed"
-    }, 405);
-  }
-
-  try {
-    const period = url.searchParams.get("period") || "overall";
-    return await listeningStats(env, period);
-  } catch (error) {
-    return json({
-      ok: false,
-      error: "Tidak bisa mengambil statistik Last.fm."
-    }, 502);
-  }
-}
-
-// HEALTH
-if (url.pathname === "/api/health") {
-  return json({
-    ok: true,
-    service: "LUXX Live Listening"
-  });
-}
-
-// STATS PAGE
-if (
-  url.pathname === "/stats" ||
-  url.pathname === "/stats/"
-) {
-  return env.ASSETS.fetch(
-    new Request(
-      new URL("/stats.html", request.url),
-      request
-    )
-  );
-}
-
-return env.ASSETS.fetch(request);
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(
+      syncRecentlyPlayed(env).catch(error => {
+        console.error("Spotify sync:", error);
+      })
+    );
   }
 };

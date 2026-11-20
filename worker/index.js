@@ -1,4 +1,3 @@
-
 const COOKIE_NAME = "luxx_admin";
 const SESSION_SECONDS = 8 * 60 * 60;
 const SPOTIFY_API = "https://api.spotify.com/v1";
@@ -397,10 +396,9 @@ function offlineResponse() {
   });
 }
 
+
 async function nowPlaying(env) {
-  const manual = await env.PRESENCE.get(
-    "manual_status"
-  );
+  const manual = await env.PRESENCE.get("manual_status");
 
   if (manual === "offline") {
     return offlineResponse();
@@ -411,14 +409,15 @@ async function nowPlaying(env) {
     env
   );
 
-  if (!data?.item || !data.is_playing) {
+  // Tidak ada lagu yang sedang aktif.
+  if (!data?.item) {
     return offlineResponse();
   }
 
   return json({
     ok: true,
-    status: "online",
-    isPlaying: true,
+    status: data.is_playing ? "online" : "paused",
+    isPlaying: !!data.is_playing,
     track: mapTrack(data.item),
     progress: data.progress_ms || 0,
     lastUpdated: new Date().toISOString()

@@ -287,12 +287,25 @@ function statsArray(value) {
 function statsImage(images) {
   if (!Array.isArray(images)) return "";
 
-  const preferred =
-    images.find(item => item.size === "extralarge") ||
-    images.find(item => item.size === "large") ||
-    images.find(item => item.size === "medium");
+  const preferred = [
+    "extralarge",
+    "mega",
+    "large",
+    "medium",
+    "small"
+  ];
 
-  return preferred?.["#text"] || "";
+  for (const size of preferred) {
+    const image = images.find(
+      item => item.size === size && item["#text"]
+    );
+
+    if (image) return image["#text"];
+  }
+
+  const fallback = images.find(item => item["#text"]);
+
+  return fallback?.["#text"] || "";
 }
 
 async function listeningStats(env, period = "overall") {

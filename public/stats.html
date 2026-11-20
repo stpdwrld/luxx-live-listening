@@ -70,15 +70,14 @@
     }
 
     .period-select {
-      color: var(--text);
+      color: var(--accent);
       background: #151515;
       border: 1px solid #333;
       border-radius: 4px;
       padding: 11px 13px;
       font: 10px 'DM Mono', monospace;
       letter-spacing: 1px;
-      outline: none;
-      cursor: pointer;
+      white-space: nowrap;
     }
 
     .overview {
@@ -306,13 +305,7 @@
           <p id="profile-name">Loading listening profile...</p>
         </div>
 
-        <select class="period-select" id="period-select">
-          <option value="7day">LAST 7 DAYS</option>
-          <option value="30day">LAST 30 DAYS</option>
-          <option value="90day">LAST 90 DAYS</option>
-          <option value="6month">LAST 6 MONTHS</option>
-          <option value="overall" selected>ALL TIME</option>
-        </select>
+        <div class="period-select">ALL TIME</div>
       </section>
 
       <section class="overview">
@@ -389,14 +382,6 @@
     const $ = id => document.getElementById(id);
 
     const placeholder = "/cover-placeholder.svg";
-
-    const periodLabels = {
-      "7day": "LAST 7 DAYS",
-      "30day": "LAST 30 DAYS",
-      "90day": "LAST 90 DAYS",
-      "6month": "LAST 6 MONTHS",
-      "overall": "ALL TIME"
-    };
 
     function number(value) {
       return Number(value || 0).toLocaleString("en-US");
@@ -526,13 +511,11 @@
     }
 
     async function loadStats() {
-      const period = $("period-select").value;
-
       $("connection-status").textContent = "UPDATING...";
 
       try {
         const response = await fetch(
-          `/api/listening-stats?period=${encodeURIComponent(period)}`,
+          "/api/listening-stats?period=overall",
           { cache: "no-store" }
         );
 
@@ -582,8 +565,6 @@
         console.error("Spotify stats:", error);
       }
     }
-
-    $("period-select").addEventListener("change", loadStats);
 
     loadStats();
 

@@ -1,0 +1,348 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090909">
+  <meta name="description" content="LUXX Listening Statistics">
+
+  <title>LUXX — Listening Stats</title>
+
+  <link rel="icon" type="image/png"
+    href="https://raw.githubusercontent.com/stpdwrld/bahanprof/main/logo.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400&family=Inter:wght@300;400;500;600&display=swap"
+    rel="stylesheet">
+
+  <link rel="stylesheet" href="/style.css">
+
+  <style>
+    body.stats-page {
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow-y: auto;
+    }
+
+    html:has(body.stats-page) {
+      height: auto;
+      min-height: 100%;
+      overflow: auto;
+    }
+
+    .stats-content {
+      width: min(100%, 850px);
+      margin: 0 auto;
+      padding: clamp(45px, 9vh, 100px) 0;
+    }
+
+    .stats-heading {
+      margin-bottom: 35px;
+    }
+
+    .stats-eyebrow {
+      color: var(--accent);
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2.5px;
+      margin: 0 0 13px;
+    }
+
+    .stats-heading h1 {
+      font-size: clamp(30px, 5vw, 48px);
+      font-weight: 400;
+      letter-spacing: -2px;
+      margin: 0 0 10px;
+    }
+
+    .stats-description {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+      margin: 0;
+    }
+
+    .current-track {
+      display: flex;
+      align-items: center;
+      gap: 17px;
+      padding: 18px;
+      margin-bottom: 18px;
+
+      background: #111;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+
+    .current-track img {
+      width: 65px;
+      height: 65px;
+      object-fit: cover;
+      border-radius: 4px;
+      background: #202020;
+    }
+
+    .current-track-info {
+      min-width: 0;
+    }
+
+    .current-track-label {
+      color: var(--accent);
+      font: 9px 'DM Mono', monospace;
+      letter-spacing: 2px;
+      margin: 0 0 8px;
+    }
+
+    .current-track h2 {
+      font-size: 17px;
+      font-weight: 400;
+      overflow-wrap: anywhere;
+      margin: 0 0 5px;
+    }
+
+    .current-track p:last-child {
+      color: #999;
+      font-size: 11px;
+      margin: 0;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      min-height: 145px;
+      padding: 22px 18px;
+
+      background: #111;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+
+    .stat-label {
+      color: #888;
+      font: 9px 'DM Mono', monospace;
+      letter-spacing: 1.5px;
+      line-height: 1.7;
+      margin: 0 0 22px;
+    }
+
+    .stat-value {
+      color: var(--text);
+      font-size: clamp(27px, 4vw, 38px);
+      font-weight: 400;
+      letter-spacing: -1.5px;
+      margin: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .stat-unit {
+      color: var(--accent);
+      font: 9px 'DM Mono', monospace;
+      letter-spacing: 1.5px;
+      margin-top: 7px;
+    }
+
+    .stats-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid var(--line);
+    }
+
+    .stats-status,
+    .stats-updated {
+      color: #777;
+      font: 9px 'DM Mono', monospace;
+      letter-spacing: 1px;
+    }
+
+    .stats-status.online {
+      color: var(--accent);
+    }
+
+    @media (max-width: 620px) {
+      .stats-content {
+        padding: 55px 0;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 9px;
+      }
+
+      .stat-card {
+        min-height: 110px;
+        padding: 17px;
+      }
+
+      .stat-label {
+        margin-bottom: 12px;
+      }
+
+      .stat-value {
+        font-size: 32px;
+      }
+
+      .current-track {
+        padding: 13px;
+      }
+
+      .current-track img {
+        width: 55px;
+        height: 55px;
+      }
+    }
+  </style>
+</head>
+
+<body class="stats-page">
+  <main class="shell">
+
+    <header class="topbar">
+      <a class="brand" href="/">LUXX<span>.</span></a>
+
+      <a href="/" style="
+        color:#999;
+        text-decoration:none;
+        font-family:'DM Mono',monospace;
+        font-size:9px;
+        letter-spacing:1.5px;
+      ">
+        ← BACK TO PLAYER
+      </a>
+    </header>
+
+    <section class="stats-content">
+
+      <div class="stats-heading">
+        <p class="stats-eyebrow">LAST.FM / PERSONAL DATA</p>
+        <h1>Listening Stats<span style="color:var(--accent)">.</span></h1>
+        <p class="stats-description">
+          Your personal listening activity, updated automatically.
+        </p>
+      </div>
+
+      <div class="current-track">
+        <img id="stats-cover" src="/cover-placeholder.svg" alt="Album artwork">
+
+        <div class="current-track-info">
+          <p class="current-track-label" id="stats-state">CHECKING PLAYBACK</p>
+          <h2 id="stats-title">Loading track...</h2>
+          <p id="stats-artist">Please wait</p>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+
+        <article class="stat-card">
+          <p class="stat-label">TRACK PLAYS</p>
+          <h2 class="stat-value" id="track-plays">—</h2>
+          <p class="stat-unit">PERSONAL PLAYS</p>
+        </article>
+
+        <article class="stat-card">
+          <p class="stat-label">ARTIST PLAYS</p>
+          <h2 class="stat-value" id="artist-plays">—</h2>
+          <p class="stat-unit">PERSONAL PLAYS</p>
+        </article>
+
+        <article class="stat-card">
+          <p class="stat-label">TOTAL SCROBBLES</p>
+          <h2 class="stat-value" id="total-scrobbles">—</h2>
+          <p class="stat-unit">ACCOUNT TOTAL</p>
+        </article>
+
+      </div>
+
+      <div class="stats-footer">
+        <span class="stats-status" id="stats-status">CONNECTING TO LAST.FM</span>
+        <span class="stats-updated" id="stats-updated">WAITING</span>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    function formatNumber(value) {
+      return Number(value || 0).toLocaleString("en-US");
+    }
+
+    function resetStats() {
+      $("track-plays").textContent = "—";
+      $("artist-plays").textContent = "—";
+      $("total-scrobbles").textContent = "—";
+    }
+
+    async function loadStats() {
+      try {
+        const response = await fetch("/api/track-stats", {
+          cache: "no-store"
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          throw new Error(data.error || "API unavailable");
+        }
+
+        if (!data.isPlaying || !data.track) {
+          $("stats-state").textContent = "NOT LISTENING";
+          $("stats-title").textContent = "Nothing playing";
+          $("stats-artist").textContent = "Waiting for music...";
+          $("stats-cover").src = "/cover-placeholder.svg";
+          $("stats-status").textContent = "PLAYER OFFLINE";
+          $("stats-status").classList.remove("online");
+          resetStats();
+          return;
+        }
+
+        $("stats-state").textContent = "NOW PLAYING";
+        $("stats-title").textContent = data.track.title || "Unknown track";
+        $("stats-artist").textContent = data.track.artist || "Unknown artist";
+        $("stats-cover").src = data.track.image || "/cover-placeholder.svg";
+
+        $("track-plays").textContent =
+          formatNumber(data.stats?.trackPlays);
+
+        $("artist-plays").textContent =
+          formatNumber(data.stats?.artistPlays);
+
+        $("total-scrobbles").textContent =
+          formatNumber(data.stats?.totalScrobbles);
+
+        $("stats-status").textContent = "CONNECTED TO LAST.FM";
+        $("stats-status").classList.add("online");
+
+        $("stats-updated").textContent =
+          "UPDATED " + new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit"
+          });
+
+      } catch (error) {
+        $("stats-status").textContent = "CONNECTION ERROR";
+        $("stats-status").classList.remove("online");
+      }
+    }
+
+    loadStats();
+    setInterval(loadStats, 15000);
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) loadStats();
+    });
+  </script>
+</body>
+</html>

@@ -25,5 +25,9 @@
       "database_name": "music",
       "database_id": "6dc6bcce-5dd0-42bf-8985-4225720dfe71"
     }
-  ]
+  ],
+
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  }
 }

@@ -437,9 +437,24 @@ if (url.pathname === "/api/track-stats") {
 }
 
     if (url.pathname === "/api/health") {
-      return json({ ok: true, service: "LUXX Live Listening" });
-    }
+  return json({
+    ok: true,
+    service: "LUXX Live Listening"
+  });
+}
 
-    return env.ASSETS.fetch(request);
+if (
+  url.pathname === "/stats" ||
+  url.pathname === "/stats/"
+) {
+  return env.ASSETS.fetch(
+    new Request(
+      new URL("/stats.html", request.url),
+      request
+    )
+  );
+}
+
+return env.ASSETS.fetch(request);
   }
 };

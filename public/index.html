@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -31,13 +30,33 @@
 
     <!-- HEADER -->
     <header class="topbar">
-      <a class="brand" href="/">LUXX<span>.</span></a>
+  <a class="brand" href="/">LUXX<span>.</span></a>
 
-      <div class="live-indicator">
-        <i id="status-dot"></i>
-        <span id="status-label">CHECKING</span>
-      </div>
-    </header>
+  <div class="header-actions">
+    <div class="live-indicator">
+      <i id="status-dot"></i>
+      <span id="status-label">CHECKING</span>
+    </div>
+
+    <div class="menu-wrap">
+      <button
+        class="menu-toggle"
+        id="menuToggle"
+        aria-label="Open menu"
+        aria-expanded="false"
+        aria-controls="mainMenu"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <nav class="menu-dropdown" id="mainMenu">
+        <a href="/stats">LISTENING STATS <span>↗</span></a>
+      </nav>
+    </div>
+  </div>
+</header>
 
     <!-- MAIN PLAYER -->
     <section class="main-content">
@@ -120,77 +139,93 @@
   <script src="/script.js" defer></script>
 
   <!-- VISUALIZER + MINI PLAYER -->
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
+  
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const $ = id => document.getElementById(id);
 
-      const $ = id => document.getElementById(id);
+    const visualizer = $("visualizer");
+    const cover = $("cover");
+    const title = $("track-title");
+    const artist = $("track-artist");
+    const playState = $("play-state");
+    const lastfmLink = $("lastfm-link");
 
-      const visualizer = $("visualizer");
-      const cover = $("cover");
-      const title = $("track-title");
-      const artist = $("track-artist");
-      const playState = $("play-state");
-      const lastfmLink = $("lastfm-link");
+    // CREATE EQUALIZER
+    for (let i = 0; i < 35; i++) {
+      const bar = document.createElement("span");
 
-      // CREATE EQUALIZER
-      for (let i = 0; i < 35; i++) {
-        const bar = document.createElement("span");
+      bar.style.setProperty("--bar-height", `${15 + Math.random() * 85}%`);
+      bar.style.setProperty("--duration", `${0.45 + Math.random() * 0.8}s`);
+      bar.style.setProperty("--delay", `${Math.random() * -1.5}s`);
 
-        bar.style.setProperty(
-          "--bar-height",
-          `${15 + Math.random() * 85}%`
-        );
+      visualizer.appendChild(bar);
+    }
 
-        bar.style.setProperty(
-          "--duration",
-          `${0.45 + Math.random() * 0.8}s`
-        );
+    // SYNC PLAYER DISPLAY
+    function syncPlayer() {
+      const playing = playState.textContent === "NOW PLAYING";
 
-        bar.style.setProperty(
-          "--delay",
-          `${Math.random() * -1.5}s`
-        );
+      visualizer.classList.toggle("is-playing", playing);
 
-        visualizer.appendChild(bar);
+      $("mini-title").textContent = title.textContent;
+
+      $("mini-artist").textContent = playing
+        ? artist.textContent
+        : "LUXX LIVE LISTENING";
+
+      $("mini-cover").src = cover.src;
+
+      if (!lastfmLink.hidden) {
+        $("bottom-link").href = lastfmLink.href;
+        $("bottom-link").hidden = false;
+      } else {
+        $("bottom-link").hidden = true;
       }
+    }
 
-      // SYNC PLAYER DISPLAY
-      function syncPlayer() {
-        const playing = playState.textContent === "NOW PLAYING";
+    const observer = new MutationObserver(syncPlayer);
 
-        visualizer.classList.toggle("is-playing", playing);
-
-        $("mini-title").textContent = title.textContent;
-
-        $("mini-artist").textContent = playing
-          ? artist.textContent
-          : "LUXX LIVE LISTENING";
-
-        $("mini-cover").src = cover.src;
-
-        if (!lastfmLink.hidden) {
-          $("bottom-link").href = lastfmLink.href;
-          $("bottom-link").hidden = false;
-        } else {
-          $("bottom-link").hidden = true;
-        }
-      }
-
-      const observer = new MutationObserver(syncPlayer);
-
-      [playState, cover, title, artist, lastfmLink].forEach(element => {
-        observer.observe(element, {
-          childList: true,
-          characterData: true,
-          subtree: true,
-          attributes: true,
-          attributeFilter: ["src", "href", "hidden"]
-        });
+    [playState, cover, title, artist, lastfmLink].forEach(element => {
+      observer.observe(element, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["src", "href", "hidden"]
       });
-
-      syncPlayer();
     });
-  </script>
 
+    syncPlayer();
+
+    // HAMBURGER MENU
+    const toggle = $("menuToggle");
+    const menu = $("mainMenu");
+
+    if (!toggle || !menu) return;
+
+    function closeMenu() {
+      toggle.setAttribute("aria-expanded", "false");
+      menu.classList.remove("open");
+    }
+
+    toggle.addEventListener("click", () => {
+      const isOpen = toggle.getAttribute("aria-expanded") === "true";
+
+      toggle.setAttribute("aria-expanded", String(!isOpen));
+      menu.classList.toggle("open", !isOpen);
+    });
+
+    document.addEventListener("click", event => {
+      if (!event.target.closest(".menu-wrap")) {
+        closeMenu();
+      }
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeMenu();
+    });
+  });
+</script>
 </body>
 </html>

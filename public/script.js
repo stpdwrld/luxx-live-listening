@@ -1,3 +1,4 @@
+
 const $ = (id) => document.getElementById(id);
 
 const POLL_MS = 5000;
@@ -5,22 +6,54 @@ const POLL_MS = 5000;
 let lastTrackKey = "";
 let isRefreshing = false;
 
+function setText(id, value) {
+  const el = $(id);
+  if (el) el.textContent = value;
+}
+
 function setStatus(online, label) {
-  $("status-dot").parentElement.classList.toggle("online", online);
-  $("status-label").textContent = label;
+  const dot = $("status-dot");
+  const labelEl = $("status-label");
+
+  if (dot?.parentElement) {
+    dot.parentElement.classList.toggle("online", online);
+  }
+
+  if (labelEl) labelEl.textContent = label;
+}
+
+function setCover(src) {
+  const cover = $("cover");
+  if (cover) cover.src = src;
+}
+
+function setSpotifyLink(url) {
+  const link = $("spotify-link");
+
+  if (!link) return;
+
+  if (url) {
+    link.href = url;
+    link.textContent = "OPEN ON SPOTIFY ↗";
+    link.hidden = false;
+  } else {
+    link.hidden = true;
+  }
 }
 
 function showOffline() {
   setStatus(false, "OFFLINE");
 
-  $("play-state").textContent = "NOT LISTENING";
-  $("track-title").textContent = "Nothing playing";
-  $("track-artist").textContent =
-    "When playback starts, it will appear here.";
-  $("track-album").textContent = "";
+  setText("play-state", "NOT LISTENING");
+  setText("track-title", "Nothing playing");
+  setText(
+    "track-artist",
+    "When playback starts, it will appear here."
+  );
+  setText("track-album", "");
 
-  $("cover").src = "/cover-placeholder.svg";
-  $("spotify-link").hidden = true;
+  setCover("/cover-placeholder.svg");
+  setSpotifyLink("");
 
   lastTrackKey = "";
 }
@@ -28,14 +61,13 @@ function showOffline() {
 function showError(message) {
   setStatus(false, "UNAVAILABLE");
 
-  $("play-state").textContent = "CONNECTION ISSUE";
-  $("track-title").textContent = "Unable to load status";
-  $("track-artist").textContent =
-    message || "Trying again shortly.";
-  $("track-album").textContent = "";
+  setText("play-state", "CONNECTION ISSUE");
+  setText("track-title", "Unable to load status");
+  setText("track-artist", message || "Trying again shortly.");
+  setText("track-album", "");
 
-  $("cover").src = "/cover-placeholder.svg";
-  $("spotify-link").hidden = true;
+  setCover("/cover-placeholder.svg");
+  setSpotifyLink("");
 }
 
 async function refresh() {
@@ -62,38 +94,29 @@ async function refresh() {
       const key = `${t.id || ""}|${t.title}|${t.artist}|${t.album}`;
 
       setStatus(true, "LIVE NOW");
-      $("play-state").textContent = "NOW PLAYING";
+      setText("play-state", "NOW PLAYING");
 
       if (key !== lastTrackKey) {
         lastTrackKey = key;
 
-        $("track-title").textContent =
-          t.title || "Unknown track";
+        setText("track-title", t.title || "Unknown track");
+        setText("track-artist", t.artist || "Unknown artist");
+        setText("track-album", t.album || "");
 
-        $("track-artist").textContent =
-          t.artist || "Unknown artist";
-
-        $("track-album").textContent =
-          t.album || "";
-
-        $("cover").src =
-          t.image || "/cover-placeholder.svg";
-
-        if (t.url) {
-          $("spotify-link").href = t.url;
-          $("spotify-link").hidden = false;
-        } else {
-          $("spotify-link").hidden = true;
-        }
+        setCover(t.image || "/cover-placeholder.svg");
       }
+
+      setSpotifyLink(t.url);
     }
 
-    $("updated").textContent =
+    setText(
+      "updated",
       "Checked " +
-      new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit"
-      });
+        new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit"
+        })
+    );
 
   } catch (error) {
     showError(error.message);

@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -77,16 +78,7 @@
       font: 10px 'DM Mono', monospace;
       letter-spacing: 1px;
       outline: none;
-    }
-    
-    .period-label {
-      color: var(--accent);
-      background: #151515;
-      border: 1px solid #333;
-      border-radius: 4px;
-      padding: 11px 16px;
-      font: 10px 'DM Mono', monospace;
-      letter-spacing: 1.5px;
+      cursor: pointer;
     }
 
     .overview {
@@ -217,6 +209,8 @@
     .music-link {
       color: inherit;
       text-decoration: none;
+      flex: 1;
+      min-width: 0;
     }
 
     .music-link:hover h3 {
@@ -307,17 +301,23 @@
 
       <section class="stats-heading">
         <div>
-          <p class="eyebrow">LAST.FM / PERSONAL ARCHIVE</p>
+          <p class="eyebrow">SPOTIFY / PERSONAL ARCHIVE</p>
           <h1>Listening Stats<span style="color:var(--accent)">.</span></h1>
           <p id="profile-name">Loading listening profile...</p>
         </div>
 
-        <div class="period-label">ALL TIME</div>
+        <select class="period-select" id="period-select">
+          <option value="7day">LAST 7 DAYS</option>
+          <option value="30day">LAST 30 DAYS</option>
+          <option value="90day">LAST 90 DAYS</option>
+          <option value="6month">LAST 6 MONTHS</option>
+          <option value="overall" selected>ALL TIME</option>
+        </select>
       </section>
 
       <section class="overview">
         <article class="overview-card">
-          <p>TOTAL SCROBBLES</p>
+          <p>TOTAL PLAYS</p>
           <h2 id="total-scrobbles">—</h2>
         </article>
 
@@ -378,7 +378,7 @@
       </section>
 
       <footer class="stats-footer">
-        <span id="connection-status">CONNECTING TO LAST.FM</span>
+        <span id="connection-status">CONNECTING TO SPOTIFY</span>
         <span id="last-updated">WAITING</span>
       </footer>
 
@@ -390,8 +390,31 @@
 
     const placeholder = "/cover-placeholder.svg";
 
+    const periodLabels = {
+      "7day": "LAST 7 DAYS",
+      "30day": "LAST 30 DAYS",
+      "90day": "LAST 90 DAYS",
+      "6month": "LAST 6 MONTHS",
+      "overall": "ALL TIME"
+    };
+
     function number(value) {
       return Number(value || 0).toLocaleString("en-US");
+    }
+
+    function getDate(value) {
+      if (!value) return "";
+
+      const date = new Date(value);
+
+      if (Number.isNaN(date.getTime())) {
+        return String(value);
+      }
+
+      return date.toLocaleDateString("en-US", {
+        day: "2-digit",
+        month: "short"
+      });
     }
 
     function makeItem(item, index, type) {
@@ -407,6 +430,7 @@
       image.src = item.image || placeholder;
       image.alt = "";
       image.loading = "lazy";
+
       image.onerror = () => {
         image.onerror = null;
         image.src = placeholder;
@@ -418,16 +442,26 @@
       const title = document.createElement("h3");
       const subtitle = document.createElement("p");
 
-      title.textContent = item.name || "Unknown";
+      const name =
+        item.name ||
+        item.title ||
+        item.track_name ||
+        "Unknown";
+
+      title.textContent = name;
 
       if (type === "artist") {
         subtitle.textContent = "ARTIST";
       } else if (type === "recent") {
-        subtitle.textContent = item.album
-          ? `${item.artist} · ${item.album}`
-          : item.artist;
+        const artist = item.artist || item.artist_name || "";
+        const album = item.album || item.album_name || "";
+
+        subtitle.textContent = album
+          ? `${artist} · ${album}`
+          : artist;
       } else {
-        subtitle.textContent = item.artist || "";
+        subtitle.textContent =
+          item.artist || item.artist_name || "";
       }
 
       info.append(title, subtitle);
@@ -443,9 +477,14 @@
       plays.className = "music-plays";
 
       if (type === "recent") {
-        plays.textContent = item.date || "";
+        plays.textContent = getDate(
+          item.date || item.played_at
+        );
       } else {
-        plays.textContent = number(item.plays);
+        plays.textContent = number(
+          item.plays || item.totalPlays
+        );
+
         const small = document.createElement("small");
         small.textContent = "PLAYS";
         plays.appendChild(small);
@@ -458,6 +497,7 @@
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         link.appendChild(info);
+
         row.append(rank, image, link, plays);
       } else {
         row.append(rank, image, info, plays);
@@ -470,7 +510,7 @@
       const container = $(id);
       container.replaceChildren();
 
-      if (!items || !items.length) {
+      if (!Array.isArray(items) || !items.length) {
         const empty = document.createElement("p");
         empty.className = "empty-state";
         empty.textContent = "NO DATA AVAILABLE";
@@ -479,15 +519,17 @@
       }
 
       items.forEach((item, index) => {
-        container.appendChild(makeItem(item, index, type));
+        container.appendChild(
+          makeItem(item, index, type)
+        );
       });
     }
 
     async function loadStats() {
-      const period = "overall";
+      const period = $("period-select").value;
 
       $("connection-status").textContent = "UPDATING...";
-      
+
       try {
         const response = await fetch(
           `/api/listening-stats?period=${encodeURIComponent(period)}`,
@@ -497,30 +539,35 @@
         const data = await response.json();
 
         if (!response.ok || !data.ok) {
-          throw new Error(data.error || "API unavailable");
+          throw new Error(
+            data.error || "Spotify API unavailable"
+          );
         }
 
+        const user = data.user || {};
+
         $("profile-name").textContent =
-          `LISTENING PROFILE / ${data.user.name}`;
+          `LISTENING PROFILE / ${user.name || "SPOTIFY USER"}`;
 
         $("total-scrobbles").textContent =
-          number(data.user.totalScrobbles);
+          number(user.totalPlays);
 
         $("artist-count").textContent =
-          number(data.user.artistCount);
+          number(user.artistCount);
 
         $("track-count").textContent =
-          number(data.user.trackCount);
+          number(user.trackCount);
 
         $("album-count").textContent =
-          number(data.user.albumCount);
+          number(user.albumCount);
 
         renderList("top-tracks", data.topTracks, "track");
         renderList("top-albums", data.topAlbums, "album");
         renderList("top-artists", data.topArtists, "artist");
         renderList("recent-tracks", data.recentTracks, "recent");
 
-        $("connection-status").textContent = "CONNECTED TO LAST.FM";
+        $("connection-status").textContent =
+          "CONNECTED TO SPOTIFY";
 
         $("last-updated").textContent =
           "UPDATED " + new Date().toLocaleTimeString([], {
@@ -529,10 +576,14 @@
           });
 
       } catch (error) {
-        $("connection-status").textContent = "CONNECTION ERROR";
-        console.error(error);
+        $("connection-status").textContent =
+          "CONNECTION ERROR";
+
+        console.error("Spotify stats:", error);
       }
     }
+
+    $("period-select").addEventListener("change", loadStats);
 
     loadStats();
 

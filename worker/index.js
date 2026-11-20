@@ -314,95 +314,73 @@ function mapTrack(track) {
 // ARTIST IMAGES
 // ========================================
 
+
 async function attachArtistImages(artists, env) {
   if (!Array.isArray(artists) || !artists.length) {
     return artists || [];
   }
 
-  const result = artists.map(artist => ({
-    ...artist,
-    image: ""
-  }));
+  return Promise.all(
+    artists.map(async artist => {
+      if (!artist.id) {
+        return {
+          ...artist,
+          image: "",
+          imageError: "MISSING_ARTIST_ID"
+        };
+      }
 
-  const missingIds = [];
-
-  // Read cached artist images from KV.
-  await Promise.all(
-    result.map(async (artist, index) => {
-      if (!artist.id) return;
+      // Versi cache baru agar cache kosong sebelumnya dilewati.
+      const cacheKey = `spotify_artist_image_v3:${artist.id}`;
 
       try {
-        const cached = await env.PRESENCE.get(
-          `spotify_artist_image:${artist.id}`
-        );
+        const cached = await env.PRESENCE.get(cacheKey);
 
-        if (cached !== null) {
-          result[index].image =
-            cached === "none" ? "" : cached;
-        } else {
-          missingIds.push(artist.id);
+        if (cached) {
+          return { ...artist, image: cached };
         }
       } catch (error) {
-        console.error("Artist image cache:", error);
-        missingIds.push(artist.id);
+        console.error("Artist cache error:", error);
+      }
+
+      try {
+        const data = await spotifyFetch(
+          `/artists/${encodeURIComponent(artist.id)}`,
+          env
+        );
+
+        const image = data?.images?.[0]?.url || "";
+
+        if (image) {
+          await env.PRESENCE.put(
+            cacheKey,
+            image,
+            { expirationTtl: 2592000 }
+          );
+
+          return { ...artist, image, imageError: null };
+        }
+
+        return {
+          ...artist,
+          image: "",
+          imageError: "SPOTIFY_RETURNED_NO_IMAGES"
+        };
+
+      } catch (error) {
+        console.error(
+          `Artist image error (${artist.name}):`,
+          error
+        );
+
+        return {
+          ...artist,
+          image: "",
+          imageError: error.message || "UNKNOWN_ERROR"
+        };
       }
     })
   );
-
-  if (!missingIds.length) {
-    return result;
-  }
-
-  // Spotify supports multiple artist IDs in one request.
-  // Keep requests in batches of 50.
-  for (let i = 0; i < missingIds.length; i += 50) {
-    const batch = missingIds.slice(i, i + 50);
-
-    try {
-      const data = await spotifyFetch(
-        `/artists?ids=${encodeURIComponent(batch.join(","))}`,
-        env
-      );
-
-      const spotifyArtists = data?.artists || [];
-
-      await Promise.all(
-        spotifyArtists.map(async artist => {
-          if (!artist?.id) return;
-
-          const image = artist.images?.[0]?.url || "";
-
-          try {
-            await env.PRESENCE.put(
-              `spotify_artist_image:${artist.id}`,
-              image || "none",
-              {
-                expirationTtl: image
-                  ? ARTIST_IMAGE_CACHE_SECONDS
-                  : 86400
-              }
-            );
-          } catch (error) {
-            console.error("Artist image save:", error);
-          }
-
-          const target = result.find(
-            item => item.id === artist.id
-          );
-
-          if (target) {
-            target.image = image;
-          }
-        })
-      );
-
-    } catch (error) {
-      // Image lookup failure must not break statistics.
-      console.error("Spotify artist images:", error);
-    }
-  }
-
-  return result;
 }
 
 // ========================================

@@ -20,6 +20,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Deploy Worker
+        run: npx wrangler deploy --config ./wrangler.jsonc
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Upload Worker secrets
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -32,14 +38,8 @@ jobs:
         run: |
           set -e
 
-          printf '%s' "$LASTFM_API_KEY" | npx wrangler secret put LASTFM_API_KEY --config ./wrangler.jsonc
-          printf '%s' "$LASTFM_USER" | npx wrangler secret put LASTFM_USER --config ./wrangler.jsonc
-          printf '%s' "$ADMIN_USERNAME" | npx wrangler secret put ADMIN_USERNAME --config ./wrangler.jsonc
-          printf '%s' "$ADMIN_PASSWORD" | npx wrangler secret put ADMIN_PASSWORD --config ./wrangler.jsonc
-          printf '%s' "$ADMIN_SESSION_SECRET" | npx wrangler secret put ADMIN_SESSION_SECRET --config ./wrangler.jsonc
-
-      - name: Deploy Worker
-        run: npx wrangler deploy --config ./wrangler.jsonc
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          printf '%s' "$LASTFM_API_KEY" | npx wrangler versions secret put LASTFM_API_KEY --config ./wrangler.jsonc
+          printf '%s' "$LASTFM_USER" | npx wrangler versions secret put LASTFM_USER --config ./wrangler.jsonc
+          printf '%s' "$ADMIN_USERNAME" | npx wrangler versions secret put ADMIN_USERNAME --config ./wrangler.jsonc
+          printf '%s' "$ADMIN_PASSWORD" | npx wrangler versions secret put ADMIN_PASSWORD --config ./wrangler.jsonc
+          printf '%s' "$ADMIN_SESSION_SECRET" | npx wrangler versions secret put ADMIN_SESSION_SECRET --config ./wrangler.jsonc

@@ -278,6 +278,143 @@ async function trackStats(env) {
   });
 }
 
+
+function statsArray(value) {
+  if (!value) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+function statsImage(images) {
+  if (!Array.isArray(images)) return "";
+
+  const preferred =
+    images.find(item => item.size === "extralarge") ||
+    images.find(item => item.size === "large") ||
+    images.find(item => item.size === "medium");
+
+  return preferred?.["#text"] || "";
+}
+
+async function listeningStats(env, period = "overall") {
+  const allowedPeriods = [
+    "overall",
+    "7day",
+    "1month",
+    "3month",
+    "6month",
+    "12month"
+  ];
+
+  if (!allowedPeriods.includes(period)) {
+    period = "overall";
+  }
+
+  if (!env.LASTFM_API_KEY || !env.LASTFM_USER) {
+    return json({
+      ok: false,
+      error: "Last.fm belum dikonfigurasi."
+    }, 503);
+  }
+
+  const common = {
+    user: env.LASTFM_USER,
+    period,
+    limit: "10"
+  };
+
+  const [
+    userData,
+    trackData,
+    albumData,
+    artistData,
+    recentData
+  ] = await Promise.all([
+    lastfmRequest(env, {
+      method: "user.getInfo",
+      user: env.LASTFM_USER
+    }),
+
+    lastfmRequest(env, {
+      method: "user.getTopTracks",
+      ...common
+    }),
+
+    lastfmRequest(env, {
+      method: "user.getTopAlbums",
+      ...common
+    }),
+
+    lastfmRequest(env, {
+      method: "user.getTopArtists",
+      ...common
+    }),
+
+    lastfmRequest(env, {
+      method: "user.getRecentTracks",
+      user: env.LASTFM_USER,
+      limit: "10"
+    })
+  ]);
+
+  const topTracks = statsArray(trackData.toptracks?.track)
+    .map((item, index) => ({
+      rank: index + 1,
+      name: item.name || "Unknown track",
+      artist: item.artist?.name || "Unknown artist",
+      plays: Number(item.playcount || 0),
+      image: statsImage(item.image),
+      url: item.url || ""
+    }));
+
+  const topAlbums = statsArray(albumData.topalbums?.album)
+    .map((item, index) => ({
+      rank: index + 1,
+      name: item.name || "Unknown album",
+      artist: item.artist?.name || "Unknown artist",
+      plays: Number(item.playcount || 0),
+      image: statsImage(item.image),
+      url: item.url || ""
+    }));
+
+  const topArtists = statsArray(artistData.topartists?.artist)
+    .map((item, index) => ({
+      rank: index + 1,
+      name: item.name || "Unknown artist",
+      plays: Number(item.playcount || 0),
+      image: statsImage(item.image),
+      url: item.url || ""
+    }));
+
+  const recentTracks = statsArray(recentData.recenttracks?.track)
+    .map(item => ({
+      name: item.name || "Unknown track",
+      artist: item.artist?.["#text"] || item.artist?.name || "Unknown artist",
+      album: item.album?.["#text"] || "",
+      image: statsImage(item.image),
+      url: item.url || "",
+      nowPlaying: item["@attr"]?.nowplaying === "true",
+      date: item.date?.["#text"] || ""
+    }));
+
+  return json({
+    ok: true,
+    period,
+    user: {
+      name: userData.user?.name || env.LASTFM_USER,
+      totalScrobbles: Number(userData.user?.playcount || 0),
+      artistCount: Number(userData.user?.artist_count || 0),
+      trackCount: Number(userData.user?.track_count || 0),
+      albumCount: Number(userData.user?.album_count || 0),
+      url: userData.user?.url || ""
+    },
+    topTracks,
+    topAlbums,
+    topArtists,
+    recentTracks,
+    lastUpdated: new Date().toISOString()
+  });
+}
+
 async function adminAPI(request, env, url) {
   if (request.method === "POST" && !checkOrigin(request, url)) {
     return json({ ok: false, error: "Invalid origin" }, 403);
@@ -436,13 +573,35 @@ if (url.pathname === "/api/track-stats") {
   }
 }
 
-    if (url.pathname === "/api/health") {
+    // LISTENING STATS API
+if (url.pathname === "/api/listening-stats") {
+  if (request.method !== "GET") {
+    return json({
+      ok: false,
+      error: "Method not allowed"
+    }, 405);
+  }
+
+  try {
+    const period = url.searchParams.get("period") || "overall";
+    return await listeningStats(env, period);
+  } catch (error) {
+    return json({
+      ok: false,
+      error: "Tidak bisa mengambil statistik Last.fm."
+    }, 502);
+  }
+}
+
+// HEALTH
+if (url.pathname === "/api/health") {
   return json({
     ok: true,
     service: "LUXX Live Listening"
   });
 }
 
+// STATS PAGE
 if (
   url.pathname === "/stats" ||
   url.pathname === "/stats/"

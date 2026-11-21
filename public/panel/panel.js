@@ -34,14 +34,14 @@ function showDashboard() {
 }
 
 function showLogin() {
+  closeMenu();
   $("dashboard-view").hidden = true;
   $("login-view").hidden = false;
   $("menu-toggle").hidden = true;
-  closeMenu();
 }
 
 // ========================================
-// NAVIGATION
+// MENU
 // ========================================
 
 function openMenu() {
@@ -50,8 +50,6 @@ function openMenu() {
 
   $("navigation").setAttribute("aria-hidden", "false");
   $("menu-toggle").setAttribute("aria-expanded", "true");
-
-  document.body.classList.add("menu-open");
 }
 
 function closeMenu() {
@@ -60,8 +58,6 @@ function closeMenu() {
 
   $("navigation").setAttribute("aria-hidden", "true");
   $("menu-toggle").setAttribute("aria-expanded", "false");
-
-  document.body.classList.remove("menu-open");
 }
 
 $("menu-toggle").addEventListener("click", openMenu);
@@ -73,33 +69,7 @@ document.addEventListener("keydown", event => {
 });
 
 // ========================================
-// LOGOUT
-// ========================================
-
-async function logout() {
-  const button = $("nav-logout");
-
-  button.disabled = true;
-  button.innerHTML = "<span>LOGGING OUT...</span>";
-
-  try {
-    await api("/api/admin/logout", {
-      method: "POST"
-    });
-
-    window.location.replace("/panel/");
-
-  } catch (error) {
-    button.disabled = false;
-    button.innerHTML = "<span>LOG OUT</span><span>↗</span>";
-    alert("Logout failed: " + error.message);
-  }
-}
-
-$("nav-logout").addEventListener("click", logout);
-
-// ========================================
-// DASHBOARD STATUS
+// STATUS
 // ========================================
 
 async function loadStatus() {
@@ -119,10 +89,6 @@ async function loadStatus() {
         ? "Your public page is manually set to online."
         : "Your public page follows Spotify playback.";
 }
-
-// ========================================
-// SPOTIFY STATUS
-// ========================================
 
 async function loadSpotifyStatus() {
   const data = await api("/api/admin/spotify/status");
@@ -167,13 +133,6 @@ $("login-form").addEventListener("submit", async event => {
 
     $("password").value = "";
 
-    const params = new URLSearchParams(location.search);
-
-    if (params.get("required") === "login") {
-      window.location.replace("/panel/stats/");
-      return;
-    }
-
     showDashboard();
 
     await Promise.all([
@@ -183,7 +142,6 @@ $("login-form").addEventListener("submit", async event => {
 
   } catch (error) {
     $("login-error").textContent = error.message;
-
   } finally {
     button.disabled = false;
     button.textContent = "SIGN IN";
@@ -213,7 +171,6 @@ $("spotify-connect-button").addEventListener("click", async () => {
 
   } catch (error) {
     $("spotify-message").textContent = error.message;
-
     button.disabled = false;
     button.textContent = "CONNECT SPOTIFY";
   }
@@ -224,26 +181,17 @@ $("spotify-connect-button").addEventListener("click", async () => {
 // ========================================
 
 $("auto-button").addEventListener("click", async () => {
-  const button = $("auto-button");
-
-  button.disabled = true;
-
   try {
     await api("/api/admin/status", {
       method: "POST",
       body: JSON.stringify({ status: "auto" })
     });
 
-    $("action-message").textContent =
-      "AUTO mode activated.";
-
+    $("action-message").textContent = "AUTO mode activated.";
     await loadStatus();
 
   } catch (error) {
     $("action-message").textContent = error.message;
-
-  } finally {
-    button.disabled = false;
   }
 });
 
@@ -252,10 +200,6 @@ $("auto-button").addEventListener("click", async () => {
 // ========================================
 
 $("offline-button").addEventListener("click", async () => {
-  const button = $("offline-button");
-
-  button.disabled = true;
-
   try {
     await api("/api/admin/status", {
       method: "POST",
@@ -269,11 +213,41 @@ $("offline-button").addEventListener("click", async () => {
 
   } catch (error) {
     $("action-message").textContent = error.message;
-
-  } finally {
-    button.disabled = false;
   }
 });
+
+// ========================================
+// LOGOUT
+// ========================================
+
+async function logout() {
+  const button = $("nav-logout");
+
+  button.disabled = true;
+  button.innerHTML = "<span>LOGGING OUT...</span>";
+
+  try {
+    const response = await fetch("/api/admin/logout", {
+      method: "POST",
+      cache: "no-store",
+      credentials: "same-origin"
+    });
+
+    if (!response.ok) {
+      throw new Error("Logout request failed");
+    }
+
+    window.location.replace("/panel/");
+
+  } catch (error) {
+    button.disabled = false;
+    button.innerHTML = "<span>LOG OUT</span><span>↗</span>";
+
+    alert("Logout failed: " + error.message);
+  }
+}
+
+$("nav-logout").addEventListener("click", logout);
 
 // ========================================
 // INITIALIZATION
@@ -294,11 +268,7 @@ async function init() {
       $("spotify-message").textContent =
         "Spotify successfully connected.";
 
-      history.replaceState(
-        {},
-        "",
-        location.pathname
-      );
+      history.replaceState({}, "", location.pathname);
     }
 
   } catch {

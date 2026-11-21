@@ -5,14 +5,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#090909">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <title>LUXX — Admin Panel</title>
   <link rel="stylesheet" href="/panel/panel.css">
 </head>
 <body>
   <main class="container">
 
-    <header>
+    <header class="topbar">
       <a class="brand" href="/">LUXX<span>.</span></a>
 
       <div class="header-right">
@@ -21,7 +20,8 @@
         <button
           id="menu-toggle"
           class="menu-toggle"
-          aria-label="Open navigation"
+          type="button"
+          aria-label="Open menu"
           aria-expanded="false"
           hidden
         >
@@ -32,8 +32,10 @@
       </div>
     </header>
 
+    <!-- MENU OVERLAY -->
     <div id="menu-overlay" class="menu-overlay"></div>
 
+    <!-- SIDE DRAWER -->
     <aside id="navigation" class="navigation" aria-hidden="true">
       <div class="menu-header">
         <a href="/" class="menu-brand">LUXX<span>.</span></a>
@@ -41,7 +43,8 @@
         <button
           id="menu-close"
           class="menu-close"
-          aria-label="Close navigation"
+          type="button"
+          aria-label="Close menu"
         >×</button>
       </div>
 
@@ -62,7 +65,7 @@
       </nav>
 
       <div class="menu-bottom">
-        <button id="nav-logout" class="nav-logout">
+        <button id="nav-logout" class="nav-logout" type="button">
           <span>LOG OUT</span>
           <span>↗</span>
         </button>
@@ -74,8 +77,12 @@
     <!-- LOGIN -->
     <section id="login-view" class="card">
       <p class="eyebrow">SECURE AREA</p>
+
       <h1>Welcome<br><span>back.</span></h1>
-      <p class="muted">Sign in to manage your listening status.</p>
+
+      <p class="muted">
+        Sign in to manage your listening status.
+      </p>
 
       <form id="login-form">
         <label for="password">Admin Password</label>
@@ -87,7 +94,10 @@
           required
         >
 
-        <button id="login-button" type="submit">SIGN IN</button>
+        <button type="submit" id="login-button">
+          SIGN IN
+        </button>
+
         <p id="login-error" class="error" role="alert"></p>
       </form>
     </section>
@@ -95,16 +105,25 @@
     <!-- DASHBOARD -->
     <section id="dashboard-view" class="card" hidden>
       <p class="eyebrow">CONTROL CENTER</p>
-      <h1>Listening<br><span>control.</span></h1>
-      <p class="muted">Manage your public listening presence.</p>
 
+      <h1>Listening<br><span>control.</span></h1>
+
+      <p class="muted">
+        Manage your public listening presence.
+      </p>
+
+      <!-- SPOTIFY -->
       <div class="status-box">
         <span class="muted">SPOTIFY CONNECTION</span>
+
         <strong id="spotify-status">CHECKING...</strong>
-        <p id="spotify-description">Checking Spotify connection...</p>
+
+        <p id="spotify-description">
+          Checking Spotify connection...
+        </p>
       </div>
 
-      <button id="spotify-connect-button">
+      <button id="spotify-connect-button" type="button">
         CONNECT SPOTIFY
       </button>
 
@@ -112,17 +131,20 @@
 
       <hr>
 
+      <!-- LISTENING MODE -->
       <div class="status-box">
         <span class="muted">CURRENT MODE</span>
+
         <strong id="current-mode">LOADING...</strong>
+
         <p id="mode-description">Checking status...</p>
       </div>
 
-      <button id="auto-button" class="secondary">
+      <button id="auto-button" class="secondary" type="button">
         AUTO MODE
       </button>
 
-      <button id="offline-button" class="danger">
+      <button id="offline-button" class="danger" type="button">
         FORCE OFFLINE
       </button>
 

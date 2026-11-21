@@ -3,6 +3,16 @@ const $ = id => document.getElementById(id);
 
 let listeningData = null;
 let storyBlob = null;
+let selectedDesign = null;
+
+const W = 1080;
+const H = 1920;
+const LIME = "#c7ff65";
+const WHITE = "#f3f3f3";
+const GREY = "#858585";
+const DARK = "#090909";
+
+const imageCache = new Map();
 
 // ========================================
 // API
@@ -36,7 +46,7 @@ async function loadStats() {
     listeningData = data;
     renderStats(data);
 
-    $("share-button").disabled = false;
+    $("share-button").disabled = !selectedDesign;
     $("loading").hidden = true;
 
   } catch (error) {
@@ -47,7 +57,7 @@ async function loadStats() {
 }
 
 // ========================================
-// RENDER
+// RENDER STATS
 // ========================================
 
 function renderStats(data) {
@@ -91,7 +101,9 @@ function getArtist(item) {
 
   if (Array.isArray(item.artists)) {
     return item.artists
-      .map(artist => typeof artist === "string" ? artist : artist.name)
+      .map(artist =>
+        typeof artist === "string" ? artist : artist.name
+      )
       .filter(Boolean)
       .join(", ");
   }
@@ -103,7 +115,7 @@ function renderList(id, items, formatter) {
   const container = $(id);
   container.replaceChildren();
 
-  if (!Array.isArray(items) || items.length === 0) {
+  if (!Array.isArray(items) || !items.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
     empty.textContent = "No data available.";
@@ -137,176 +149,137 @@ function renderList(id, items, formatter) {
 }
 
 // ========================================
-// STORY DESIGN
+// IMAGE HELPERS
 // ========================================
 
-function drawStory(data) {
-  const canvas = $("story-canvas");
-  const ctx = canvas.getContext("2d");
+function getImageUrl(item) {
+  if (!item) return "";
 
-  const W = 1080;
-  const H = 1920;
+  if (item.images?.length) {
+    return item.images[0].url || "";
+  }
 
-  ctx.clearRect(0, 0, W, H);
+  if (item.album?.images?.length) {
+    return item.album.images[0].url || "";
+  }
 
-  // Background
-  const bg = ctx.createLinearGradient(0, 0, W, H);
-  bg.addColorStop(0, "#111411");
-  bg.addColorStop(.5, "#090909");
-  bg.addColorStop(1, "#141414");
+  return "";
+}
 
-  ctx.fillStyle = bg;
+function getImage(url) {
+  if (!url) return Promise.resolve(null);
+
+  if (imageCache.has(url)) {
+    return imageCache.get(url);
+  }
+
+  const promise = new Promise(resolve => {
+    const img = new Image();
+
+    img.crossOrigin = "anonymous";
+
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+
+    img.src = url;
+  });
+
+  imageCache.set(url, promise);
+
+  return promise;
+}
+
+async function drawCover(ctx, url, x, y, w, h) {
+  roundedRect(ctx, x, y, w, h, 8, "#171717");
+
+  const img = await getImage(url);
+
+  if (img) {
+    ctx.save();
+
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 8);
+    ctx.clip();
+
+    const scale = Math.max(w / img.width, h / img.height);
+    const sw = img.width * scale;
+    const sh = img.height * scale;
+
+    ctx.drawImage(
+      img,
+      x + (w - sw) / 2,
+      y + (h - sh) / 2,
+      sw,
+      sh
+    );
+
+    ctx.restore();
+  } else {
+    ctx.fillStyle = "#252525";
+    ctx.fillRect(x, y, w, h);
+
+    ctx.fillStyle = LIME;
+    ctx.font = "bold 24px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("LUXX.", x + w / 2, y + h / 2);
+    ctx.textAlign = "left";
+  }
+}
+
+// ========================================
+// CANVAS HELPERS
+// ========================================
+
+function background(ctx) {
+  ctx.fillStyle = DARK;
   ctx.fillRect(0, 0, W, H);
 
-  // Green glow
-  const glow = ctx.createRadialGradient(
-    850, 250, 20,
-    850, 250, 700
+  const gradient = ctx.createRadialGradient(
+    850, 180, 10,
+    850, 180, 900
   );
 
-  glow.addColorStop(0, "rgba(199,255,101,.13)");
-  glow.addColorStop(1, "rgba(199,255,101,0)");
+  gradient.addColorStop(0, "rgba(199,255,101,.09)");
+  gradient.addColorStop(1, "rgba(199,255,101,0)");
 
-  ctx.fillStyle = glow;
+  ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, W, H);
+}
 
-  // Brand
-  ctx.fillStyle = "#c7ff65";
-  ctx.font = "900 65px Arial";
-  ctx.fillText("LUXX.", 76, 120);
+function header(ctx, edition) {
+  ctx.fillStyle = LIME;
+  ctx.font = "900 55px Arial";
+  ctx.fillText("LUXX.", 76, 100);
 
-  ctx.fillStyle = "#888";
-  ctx.font = "20px Arial";
-  ctx.fillText("PERSONAL LISTENING PROFILE", 80, 170);
-
-  line(ctx, 80, 210, 1000, 210);
-
-  // Title
-  ctx.fillStyle = "#f3f3f3";
-  ctx.font = "900 100px Arial";
-  ctx.fillText("MY", 76, 355);
-  ctx.fillText("LISTENING.", 76, 455);
-
-  ctx.fillStyle = "#c7ff65";
-  ctx.font = "22px Arial";
-  ctx.fillText("A SNAPSHOT OF MY MUSIC WORLD", 82, 510);
-
-  // Stats
-  const user = data.user || {};
-
-  const stats = [
-    ["TOTAL PLAYS", user.totalPlays],
-    ["ARTISTS", user.artistCount],
-    ["TRACKS", user.trackCount],
-    ["ALBUMS", user.albumCount]
-  ];
-
-  const positions = [
-    [76, 590],
-    [550, 590],
-    [76, 790],
-    [550, 790]
-  ];
-
-  stats.forEach((stat, index) => {
-    const [x, y] = positions[index];
-
-    roundedRect(ctx, x, y, 454, 160, 18, "#151815");
-    roundedRect(ctx, x, y, 5, 160, 2, "#c7ff65");
-
-    ctx.fillStyle = "#888";
-    ctx.font = "19px Arial";
-    ctx.fillText(stat[0], x + 30, y + 48);
-
-    ctx.fillStyle = "#f3f3f3";
-    ctx.font = "900 57px Arial";
-
-    const value = Number(stat[1] || 0).toLocaleString("en-US");
-    ctx.fillText(value, x + 30, y + 118);
-  });
-
-  // Top artists
-  let sectionY = 1080;
-
-  ctx.fillStyle = "#c7ff65";
-  ctx.font = "bold 20px Arial";
-  ctx.fillText("01 / TOP ARTISTS", 80, sectionY);
-
-  ctx.fillStyle = "#f3f3f3";
-  ctx.font = "bold 35px Arial";
-  ctx.fillText("Artists on repeat.", 80, sectionY + 55);
-
-  const artists = (data.topArtists || []).slice(0, 5);
-
-  artists.forEach((artist, index) => {
-    const y = sectionY + 110 + index * 62;
-
-    ctx.fillStyle = "#777";
-    ctx.font = "20px Arial";
-    ctx.fillText(String(index + 1).padStart(2, "0"), 82, y);
-
-    ctx.fillStyle = "#eee";
-    ctx.font = "bold 23px Arial";
-    ctx.fillText(
-      truncate(ctx, artist.name || "Unknown", 780),
-      145,
-      y
-    );
-
-    if (index < artists.length - 1) {
-      line(ctx, 145, y + 20, 1000, y + 20, "#262626");
-    }
-  });
-
-  // Top tracks
-  sectionY = 1570;
-
-  ctx.fillStyle = "#c7ff65";
-  ctx.font = "bold 20px Arial";
-  ctx.fillText("02 / TOP TRACKS", 80, sectionY);
-
-  const tracks = (data.topTracks || []).slice(0, 4);
-
-  tracks.forEach((track, index) => {
-    const y = sectionY + 60 + index * 58;
-
-    ctx.fillStyle = "#777";
-    ctx.font = "20px Arial";
-    ctx.fillText(String(index + 1).padStart(2, "0"), 82, y);
-
-    ctx.fillStyle = "#eee";
-    ctx.font = "bold 22px Arial";
-    ctx.fillText(
-      truncate(ctx, track.name || "Unknown", 620),
-      145,
-      y
-    );
-
-    ctx.fillStyle = "#888";
-    ctx.font = "17px Arial";
-    ctx.fillText(
-      truncate(ctx, getArtist(track), 300),
-      1000,
-      y,
-      300
-    );
-  });
-
-  // Footer
-  line(ctx, 80, 1850, 1000, 1850);
-
-  ctx.fillStyle = "#777";
+  ctx.fillStyle = GREY;
   ctx.font = "18px Arial";
-  ctx.fillText("MADE WITH LUXX LIVE LISTENING", 80, 1890);
-
   ctx.textAlign = "right";
-  ctx.fillStyle = "#c7ff65";
-  ctx.font = "bold 20px Arial";
-  ctx.fillText("LUXX.MY.ID", 1000, 1890);
+  ctx.fillText("LISTENING ARCHIVE", 1000, 88);
+  ctx.fillText("PERSONAL PROFILE", 1000, 116);
+  ctx.textAlign = "left";
+
+  line(ctx, 76, 155, 1004, 155);
+
+  ctx.fillStyle = LIME;
+  ctx.font = "bold 19px Arial";
+  ctx.fillText(edition.toUpperCase(), 80, 215);
+}
+
+function footer(ctx) {
+  line(ctx, 76, 1815, 1004, 1815);
+
+  ctx.fillStyle = GREY;
+  ctx.font = "17px Arial";
+  ctx.fillText("YOUR MUSIC. YOUR WORLD.", 80, 1860);
+
+  ctx.fillStyle = LIME;
+  ctx.font = "bold 19px Arial";
+  ctx.textAlign = "right";
+  ctx.fillText("LUXX.", 1000, 1860);
   ctx.textAlign = "left";
 }
 
-function line(ctx, x1, y1, x2, y2, color = "#333") {
+function line(ctx, x1, y1, x2, y2, color = "#303030") {
   ctx.beginPath();
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
@@ -322,31 +295,353 @@ function roundedRect(ctx, x, y, w, h, r, color) {
   ctx.fill();
 }
 
-function truncate(ctx, text, maxWidth) {
-  let result = String(text || "");
+function fitText(ctx, text, maxWidth) {
+  let value = String(text || "");
 
   while (
-    result.length > 0 &&
-    ctx.measureText(result).width > maxWidth
+    value.length &&
+    ctx.measureText(value).width > maxWidth
   ) {
-    result = result.slice(0, -1);
+    value = value.slice(0, -1);
   }
 
-  return result === text ? result : result.trimEnd() + "...";
+  return value.length < String(text || "").length
+    ? value.trimEnd() + "…"
+    : value;
+}
+
+function text(ctx, value, x, y, size = 22, color = WHITE, weight = "normal") {
+  ctx.fillStyle = color;
+  ctx.font = `${weight} ${size}px Arial`;
+  ctx.fillText(String(value || ""), x, y);
+}
+
+function stat(ctx, label, value, x, y) {
+  text(ctx, label, x, y, 16, GREY);
+  text(
+    ctx,
+    Number(value || 0).toLocaleString("en-US"),
+    x,
+    y + 65,
+    53,
+    LIME,
+    "bold"
+  );
 }
 
 // ========================================
-// GENERATE PNG
+// ARTISTS DESIGN
 // ========================================
 
+async function drawArtists(ctx, data) {
+  background(ctx);
+  header(ctx, "01 / Artists Edition");
+
+  const artists = (data.topArtists || []).slice(0, 5);
+  const first = artists[0];
+
+  text(ctx, "Top", 76, 355, 92, WHITE);
+  text(ctx, "Artists.", 76, 450, 92, LIME, "bold");
+
+  text(ctx, "THE ARTISTS THAT", 82, 510, 19, GREY);
+  text(ctx, "SOUNDTRACK YOUR DAYS.", 82, 540, 19, GREY);
+
+  if (first) {
+    await drawCover(
+      ctx,
+      getImageUrl(first),
+      590, 260, 410, 480
+    );
+
+    ctx.fillStyle = "rgba(0,0,0,.5)";
+    ctx.fillRect(590, 620, 410, 120);
+
+    text(ctx, "YOUR TOP ARTIST", 620, 675, 17, LIME);
+    text(
+      ctx,
+      fitText(ctx, first.name, 350),
+      620, 715, 31, WHITE, "bold"
+    );
+  }
+
+  line(ctx, 76, 790, 1004, 790);
+
+  artists.forEach((artist, i) => {
+    const y = 870 + i * 155;
+
+    text(ctx, String(i + 1).padStart(2, "0"), 80, y + 45, 22, GREY);
+
+    drawCover(
+      ctx,
+      getImageUrl(artist),
+      155, y, 100, 100
+    );
+
+    text(
+      ctx,
+      fitText(ctx, artist.name || "Unknown", 500),
+      290, y + 43, 27, WHITE, "bold"
+    );
+
+    const genres = artist.genres?.slice(0, 2).join(" · ");
+    text(ctx, genres || "Artist", 290, y + 77, 18, GREY);
+
+    if (i < artists.length - 1) {
+      line(ctx, 290, y + 115, 1000, y + 115);
+    }
+  });
+
+  stat(
+    ctx,
+    "TOTAL ARTISTS",
+    data.user?.artistCount,
+    790, 1660
+  );
+
+  footer(ctx);
+}
+
+// ========================================
+// ALBUMS DESIGN
+// ========================================
+
+async function drawAlbums(ctx, data) {
+  background(ctx);
+  header(ctx, "02 / Albums Edition");
+
+  text(ctx, "Top", 76, 350, 92, WHITE);
+  text(ctx, "Albums.", 76, 445, 92, LIME, "bold");
+
+  text(ctx, "THE STORIES YOU", 82, 510, 19, GREY);
+  text(ctx, "COLLECTED.", 82, 540, 19, GREY);
+
+  const albums = (data.topAlbums || []).slice(0, 6);
+  const positions = [
+    [76, 650], [393, 650], [710, 650],
+    [76, 1080], [393, 1080], [710, 1080]
+  ];
+
+  for (let i = 0; i < albums.length; i++) {
+    const album = albums[i];
+    const [x, y] = positions[i];
+
+    await drawCover(
+      ctx,
+      getImageUrl(album),
+      x, y, 270, 270
+    );
+
+    text(ctx, String(i + 1).padStart(2, "0"), x, y + 310, 17, LIME);
+
+    text(
+      ctx,
+      fitText(ctx, album.name || "Unknown", 265),
+      x, y + 350, 23, WHITE, "bold"
+    );
+
+    text(
+      ctx,
+      fitText(ctx, getArtist(album), 265),
+      x, y + 382, 17, GREY
+    );
+  }
+
+  line(ctx, 76, 1540, 1004, 1540);
+
+  stat(ctx, "TOTAL ALBUMS", data.user?.albumCount, 80, 1640);
+
+  footer(ctx);
+}
+
+// ========================================
+// TRACKS DESIGN
+// ========================================
+
+async function drawTracks(ctx, data) {
+  background(ctx);
+  header(ctx, "03 / Tracks Edition");
+
+  text(ctx, "Top", 76, 350, 92, WHITE);
+  text(ctx, "Tracks.", 76, 445, 92, LIME, "bold");
+
+  text(ctx, "THE SONGS THAT", 82, 510, 19, GREY);
+  text(ctx, "KEPT YOU GOING.", 82, 540, 19, GREY);
+
+  const tracks = (data.topTracks || []).slice(0, 7);
+
+  for (let i = 0; i < tracks.length; i++) {
+    const track = tracks[i];
+    const y = 650 + i * 160;
+
+    text(ctx, String(i + 1).padStart(2, "0"), 80, y + 65, 23, LIME);
+
+    await drawCover(
+      ctx,
+      getImageUrl(track),
+      155, y, 112, 112
+    );
+
+    text(
+      ctx,
+      fitText(ctx, track.name || "Unknown", 580),
+      310, y + 43, 27, WHITE, "bold"
+    );
+
+    text(
+      ctx,
+      fitText(ctx, getArtist(track), 580),
+      310, y + 80, 19, GREY
+    );
+
+    if (i < tracks.length - 1) {
+      line(ctx, 310, y + 125, 1000, y + 125);
+    }
+  }
+
+  stat(ctx, "TOTAL TRACKS", data.user?.trackCount, 790, 1640);
+
+  footer(ctx);
+}
+
+// ========================================
+// COMPLETE PROFILE DESIGN
+// ========================================
+
+async function drawComplete(ctx, data) {
+  background(ctx);
+  header(ctx, "04 / Complete Profile");
+
+  text(ctx, "My Music.", 76, 350, 90, WHITE);
+  text(ctx, "My World.", 76, 450, 90, LIME, "bold");
+
+  text(ctx, "ARTISTS. ALBUMS. TRACKS.", 82, 520, 19, GREY);
+  text(ctx, "ALL IN ONE.", 82, 550, 19, GREY);
+
+  const user = data.user || {};
+
+  const values = [
+    ["PLAYS", user.totalPlays],
+    ["ARTISTS", user.artistCount],
+    ["TRACKS", user.trackCount],
+    ["ALBUMS", user.albumCount]
+  ];
+
+  const xPositions = [80, 315, 550, 785];
+
+  values.forEach((item, i) => {
+    const x = xPositions[i];
+
+    text(ctx, item[0], x, 700, 16, GREY);
+
+    text(
+      ctx,
+      Number(item[1] || 0).toLocaleString("en-US"),
+      x,
+      770,
+      43,
+      LIME,
+      "bold"
+    );
+
+    if (i < 3) {
+      line(ctx, x + 190, 660, x + 190, 800);
+    }
+  });
+
+  line(ctx, 76, 850, 1004, 850);
+
+  const artist = data.topArtists?.[0];
+  const album = data.topAlbums?.[0];
+  const track = data.topTracks?.[0];
+
+  const cards = [
+    {
+      label: "TOP ARTIST",
+      item: artist,
+      name: artist?.name,
+      image: getImageUrl(artist),
+      artist: ""
+    },
+    {
+      label: "TOP ALBUM",
+      item: album,
+      name: album?.name,
+      image: getImageUrl(album),
+      artist: album ? getArtist(album) : ""
+    },
+    {
+      label: "TOP TRACK",
+      item: track,
+      name: track?.name,
+      image: getImageUrl(track),
+      artist: track ? getArtist(track) : ""
+    }
+  ];
+
+  for (let i = 0; i < cards.length; i++) {
+    const card = cards[i];
+    const x = 76 + i * 315;
+
+    text(ctx, card.label, x, 930, 17, GREY);
+
+    await drawCover(
+      ctx,
+      card.image,
+      x, 990, 270, 270
+    );
+
+    text(
+      ctx,
+      fitText(ctx, card.name || "No data", 260),
+      x, 1310, 24, WHITE, "bold"
+    );
+
+    text(
+      ctx,
+      fitText(ctx, card.artist || "LUXX", 260),
+      x, 1345, 17, GREY
+    );
+  }
+
+  line(ctx, 76, 1430, 1004, 1430);
+
+  text(ctx, "YOUR LISTENING PROFILE", 80, 1500, 18, LIME);
+  text(ctx, "A collection of your musical world.", 80, 1550, 26, WHITE);
+
+  footer(ctx);
+}
+
+// ========================================
+// GENERATE STORY
+// ========================================
+
+async function drawStory(data, design) {
+  const canvas = $("story-canvas");
+  const ctx = canvas.getContext("2d");
+
+  ctx.clearRect(0, 0, W, H);
+
+  if (design === "artists") {
+    await drawArtists(ctx, data);
+  } else if (design === "albums") {
+    await drawAlbums(ctx, data);
+  } else if (design === "tracks") {
+    await drawTracks(ctx, data);
+  } else {
+    await drawComplete(ctx, data);
+  }
+}
+
 async function generateStory() {
-  if (!listeningData) return;
+  if (!listeningData || !selectedDesign) return;
 
   $("share-button").disabled = true;
   $("share-button").textContent = "GENERATING...";
+  $("story-preview").hidden = true;
+  $("share-message").textContent = "";
 
   try {
-    drawStory(listeningData);
+    await drawStory(listeningData, selectedDesign);
 
     storyBlob = await new Promise(resolve => {
       $("story-canvas").toBlob(resolve, "image/png");
@@ -358,10 +653,11 @@ async function generateStory() {
 
     $("story-preview").hidden = false;
     $("share-message").textContent =
-      "Your Instagram Story is ready.";
+      "Your LUXX Story is ready.";
 
   } catch (error) {
-    $("share-message").textContent = error.message;
+    $("share-message").textContent =
+      "Could not generate story: " + error.message;
   } finally {
     $("share-button").disabled = false;
     $("share-button").textContent = "GENERATE STORY";
@@ -379,7 +675,7 @@ function downloadStory() {
   const link = document.createElement("a");
 
   link.href = url;
-  link.download = "luxx-listening-story.png";
+  link.download = `luxx-${selectedDesign}-story.png`;
 
   document.body.appendChild(link);
   link.click();
@@ -397,7 +693,7 @@ async function shareStory() {
 
   const file = new File(
     [storyBlob],
-    "luxx-listening-story.png",
+    `luxx-${selectedDesign}-story.png`,
     { type: "image/png" }
   );
 
@@ -427,6 +723,24 @@ async function shareStory() {
 // ========================================
 // EVENTS
 // ========================================
+
+document.querySelectorAll(".design-option").forEach(button => {
+  button.addEventListener("click", () => {
+    selectedDesign = button.dataset.design;
+
+    document.querySelectorAll(".design-option").forEach(option => {
+      option.setAttribute(
+        "aria-pressed",
+        String(option === button)
+      );
+    });
+
+    $("share-button").disabled = !listeningData;
+    $("story-preview").hidden = true;
+    storyBlob = null;
+    $("share-message").textContent = "";
+  });
+});
 
 $("period").addEventListener("change", loadStats);
 $("share-button").addEventListener("click", generateStory);

@@ -12,8 +12,22 @@
   <main class="container">
     <header>
       <a class="brand" href="/">LUXX<span>.</span></a>
-      <span class="admin-label">ADMIN ACCESS</span>
+
+      <div class="header-right">
+        <span class="admin-label">ADMIN ACCESS</span>
+        <button id="menu-toggle" class="menu-toggle" aria-label="Open menu" aria-expanded="false" hidden>
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
     </header>
+
+    <nav id="navigation" class="navigation" hidden>
+      <a href="/panel/" class="nav-link active">Dashboard</a>
+      <a href="/panel/stats/" class="nav-link">Share Stats</a>
+      <button id="nav-logout" class="nav-logout">LOG OUT</button>
+    </nav>
 
     <!-- LOGIN -->
     <section id="login-view" class="card">
@@ -41,7 +55,6 @@
       <h1>Listening<br><span>control.</span></h1>
       <p class="muted">Manage your public listening presence.</p>
 
-      <!-- SPOTIFY -->
       <div class="status-box">
         <span class="muted">SPOTIFY CONNECTION</span>
         <strong id="spotify-status">CHECKING...</strong>
@@ -56,7 +69,6 @@
 
       <hr>
 
-      <!-- LISTENING MODE -->
       <div class="status-box">
         <span class="muted">CURRENT MODE</span>
         <strong id="current-mode">LOADING...</strong>

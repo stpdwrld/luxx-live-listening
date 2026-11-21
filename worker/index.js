@@ -102,11 +102,11 @@ async function verifySession(request, env) {
 }
 
 function sessionCookie(token) {
-  return `${COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=Strict; Path=/api/admin; Max-Age=${SESSION_SECONDS}`;
+  return `${COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${SESSION_SECONDS}`;
 }
 
 function clearCookie() {
-  return `${COOKIE_NAME}=; HttpOnly; Secure; SameSite=Strict; Path=/api/admin; Max-Age=0`;
+  return `${COOKIE_NAME}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`;
 }
 
 function checkOrigin(request, url) {
@@ -823,6 +823,17 @@ async function adminAPI(request, url, env) {
       401
     );
   }
+  
+    // PRIVATE LISTENING STATS
+  if (
+    path === "/api/admin/listening-stats" &&
+    request.method === "GET"
+  ) {
+    const period =
+      url.searchParams.get("period") || "overall";
+
+    return listeningStats(env, period);
+  }
 
   if (path === "/api/admin/status") {
     if (request.method === "GET") {
@@ -1019,9 +1030,41 @@ export default {
         );
       }
 
-      if (path.startsWith("/api/admin/")) {
-        return adminAPI(request, url, env);
-      }
+      // ADMIN API
+if (path.startsWith("/api/admin/")) {
+  return adminAPI(request, url, env);
+}
+
+// PRIVATE ADMIN STATS PAGE
+if (
+  path === "/panel/stats" ||
+  path === "/panel/stats/" ||
+  path === "/panel/stats/index.html"
+) {
+  const authorized = await verifySession(request, env);
+
+  if (!authorized) {
+    return Response.redirect(
+      new URL("/panel/?required=login", url),
+      302
+    );
+  }
+
+  return env.ASSETS.fetch(
+    new Request(
+      new URL("/panel/stats/index.html", url),
+      request
+    )
+  );
+}
+
+// PANEL REDIRECT
+if (path === "/panel") {
+  return Response.redirect(
+    new URL("/panel/", url),
+    301
+  );
+}
 
       if (path === "/api/spotify/callback") {
         return spotifyCallback(request, url, env);

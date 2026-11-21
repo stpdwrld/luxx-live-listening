@@ -1,0 +1,133 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090909">
+  <title>LUXX — Listening Stats</title>
+  <link rel="stylesheet" href="/panel/stats/stats.css">
+</head>
+<body>
+  <main class="container">
+
+    <header class="topbar">
+      <a href="/panel/" class="brand">LUXX<span>.</span></a>
+
+      <a href="/panel/" class="back-link">
+        <span>←</span> DASHBOARD
+      </a>
+    </header>
+
+    <section class="intro">
+      <p class="eyebrow">PERSONAL ANALYTICS</p>
+      <h1>Listening<br><span>stats.</span></h1>
+      <p class="muted">
+        Your personal listening activity, collected by LUXX.
+      </p>
+    </section>
+
+    <section class="stats-section">
+
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">OVERVIEW</p>
+          <h2>Listening profile</h2>
+        </div>
+
+        <select id="period">
+          <option value="overall">All time</option>
+          <option value="short_term">Last 4 weeks</option>
+          <option value="medium_term">Last 6 months</option>
+          <option value="long_term">Long term</option>
+        </select>
+      </div>
+
+      <div class="stats-grid">
+        <article class="stat-card">
+          <span>TOTAL PLAYS</span>
+          <strong id="total-plays">—</strong>
+        </article>
+
+        <article class="stat-card">
+          <span>ARTISTS</span>
+          <strong id="artist-count">—</strong>
+        </article>
+
+        <article class="stat-card">
+          <span>TRACKS</span>
+          <strong id="track-count">—</strong>
+        </article>
+
+        <article class="stat-card">
+          <span>ALBUMS</span>
+          <strong id="album-count">—</strong>
+        </article>
+      </div>
+
+    </section>
+
+    <p id="loading" class="loading">LOADING LISTENING DATA...</p>
+    <p id="error" class="error" hidden></p>
+
+    <section class="data-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">YOUR COLLECTION</p>
+          <h2>Top artists</h2>
+        </div>
+      </div>
+      <div id="top-artists" class="list"></div>
+    </section>
+
+    <section class="data-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">MOST PLAYED</p>
+          <h2>Top tracks</h2>
+        </div>
+      </div>
+      <div id="top-tracks" class="list"></div>
+    </section>
+
+    <section class="data-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">ALBUM COLLECTION</p>
+          <h2>Top albums</h2>
+        </div>
+      </div>
+      <div id="top-albums" class="list"></div>
+    </section>
+
+    <section class="data-section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">LATEST ACTIVITY</p>
+          <h2>Recent tracks</h2>
+        </div>
+      </div>
+      <div id="recent-tracks" class="list"></div>
+    </section>
+
+    <section class="share-section">
+      <p class="eyebrow">SHARE YOUR MUSIC</p>
+      <h2>Your listening.<br><span>Your identity.</span></h2>
+      <p class="muted">
+        Create a visual summary of your listening profile.
+      </p>
+
+      <button id="share-button" disabled>
+        GENERATE STORY
+      </button>
+
+      <p id="share-message" class="message"></p>
+    </section>
+
+    <footer>LUXX LIVE LISTENING · PERSONAL STATS</footer>
+
+  </main>
+
+  <script src="/panel/stats/stats.js" defer></script>
+</body>
+</html>

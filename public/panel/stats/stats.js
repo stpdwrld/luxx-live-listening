@@ -97,6 +97,8 @@ function renderStats(data) {
 }
 
 function getArtist(item) {
+  if (!item) return "Spotify";
+
   if (item.artist) return item.artist;
 
   if (Array.isArray(item.artists)) {
@@ -152,15 +154,12 @@ function renderList(id, items, formatter) {
 // IMAGE HELPERS
 // ========================================
 
-
 function getImageUrl(item) {
   if (!item) return "";
 
-  // Format yang digunakan API LUXX
   if (item.image) return item.image;
   if (item.image_url) return item.image_url;
 
-  // Format Spotify
   if (item.images?.length) {
     return item.images[0].url || "";
   }
@@ -169,7 +168,6 @@ function getImageUrl(item) {
     return item.album.images[0].url || "";
   }
 
-  // Alternatif format gambar
   return (
     item.album_image ||
     item.artist_image ||
@@ -177,7 +175,6 @@ function getImageUrl(item) {
     ""
   );
 }
-
 
 function getImage(url) {
   if (!url) return Promise.resolve(null);
@@ -308,38 +305,26 @@ function roundedRect(ctx, x, y, w, h, r, color) {
   ctx.fill();
 }
 
-function fitText(ctx, text, maxWidth) {
-  let value = String(text || "");
+function fitText(ctx, value, maxWidth) {
+  const original = String(value || "");
+  let result = original;
 
   while (
-    value.length &&
-    ctx.measureText(value).width > maxWidth
+    result.length &&
+    ctx.measureText(result).width > maxWidth
   ) {
-    value = value.slice(0, -1);
+    result = result.slice(0, -1);
   }
 
-  return value.length < String(text || "").length
-    ? value.trimEnd() + "…"
-    : value;
+  return result.length < original.length
+    ? result.trimEnd() + "…"
+    : result;
 }
 
 function text(ctx, value, x, y, size = 22, color = WHITE, weight = "normal") {
   ctx.fillStyle = color;
   ctx.font = `${weight} ${size}px Arial`;
   ctx.fillText(String(value || ""), x, y);
-}
-
-function stat(ctx, label, value, x, y) {
-  text(ctx, label, x, y, 16, GREY);
-  text(
-    ctx,
-    Number(value || 0).toLocaleString("en-US"),
-    x,
-    y + 65,
-    53,
-    LIME,
-    "bold"
-  );
 }
 
 // ========================================
@@ -379,12 +364,13 @@ async function drawArtists(ctx, data) {
 
   line(ctx, 76, 790, 1004, 790);
 
-  artists.forEach((artist, i) => {
+  for (let i = 0; i < artists.length; i++) {
+    const artist = artists[i];
     const y = 870 + i * 155;
 
     text(ctx, String(i + 1).padStart(2, "0"), 80, y + 45, 22, GREY);
 
-    drawCover(
+    await drawCover(
       ctx,
       getImageUrl(artist),
       155, y, 100, 100
@@ -397,19 +383,17 @@ async function drawArtists(ctx, data) {
     );
 
     const genres = artist.genres?.slice(0, 2).join(" · ");
-    text(ctx, genres || "Artist", 290, y + 77, 18, GREY);
+
+    text(
+      ctx,
+      genres || "Artist",
+      290, y + 77, 18, GREY
+    );
 
     if (i < artists.length - 1) {
       line(ctx, 290, y + 115, 1000, y + 115);
     }
-  });
-
-  stat(
-    ctx,
-    "TOTAL ARTISTS",
-    data.user?.artistCount,
-    790, 1660
-  );
+  }
 
   footer(ctx);
 }
@@ -429,6 +413,7 @@ async function drawAlbums(ctx, data) {
   text(ctx, "COLLECTED.", 82, 540, 19, GREY);
 
   const albums = (data.topAlbums || []).slice(0, 6);
+
   const positions = [
     [76, 650], [393, 650], [710, 650],
     [76, 1080], [393, 1080], [710, 1080]
@@ -444,7 +429,11 @@ async function drawAlbums(ctx, data) {
       x, y, 270, 270
     );
 
-    text(ctx, String(i + 1).padStart(2, "0"), x, y + 310, 17, LIME);
+    text(
+      ctx,
+      String(i + 1).padStart(2, "0"),
+      x, y + 310, 17, LIME
+    );
 
     text(
       ctx,
@@ -458,10 +447,6 @@ async function drawAlbums(ctx, data) {
       x, y + 382, 17, GREY
     );
   }
-
-  line(ctx, 76, 1540, 1004, 1540);
-
-  stat(ctx, "TOTAL ALBUMS", data.user?.albumCount, 80, 1640);
 
   footer(ctx);
 }
@@ -486,7 +471,11 @@ async function drawTracks(ctx, data) {
     const track = tracks[i];
     const y = 650 + i * 160;
 
-    text(ctx, String(i + 1).padStart(2, "0"), 80, y + 65, 23, LIME);
+    text(
+      ctx,
+      String(i + 1).padStart(2, "0"),
+      80, y + 65, 23, LIME
+    );
 
     await drawCover(
       ctx,
@@ -511,8 +500,6 @@ async function drawTracks(ctx, data) {
     }
   }
 
-  stat(ctx, "TOTAL TRACKS", data.user?.trackCount, 790, 1640);
-
   footer(ctx);
 }
 
@@ -527,99 +514,65 @@ async function drawComplete(ctx, data) {
   text(ctx, "My Music.", 76, 350, 90, WHITE);
   text(ctx, "My World.", 76, 450, 90, LIME, "bold");
 
-  text(ctx, "ARTISTS. ALBUMS. TRACKS.", 82, 520, 19, GREY);
-  text(ctx, "ALL IN ONE.", 82, 550, 19, GREY);
+  text(ctx, "THREE PARTS OF YOUR", 82, 520, 19, GREY);
+  text(ctx, "MUSICAL IDENTITY.", 82, 550, 19, GREY);
 
-  const user = data.user || {};
-
-  const values = [
-    ["PLAYS", user.totalPlays],
-    ["ARTISTS", user.artistCount],
-    ["TRACKS", user.trackCount],
-    ["ALBUMS", user.albumCount]
-  ];
-
-  const xPositions = [80, 315, 550, 785];
-
-  values.forEach((item, i) => {
-    const x = xPositions[i];
-
-    text(ctx, item[0], x, 700, 16, GREY);
-
-    text(
-      ctx,
-      Number(item[1] || 0).toLocaleString("en-US"),
-      x,
-      770,
-      43,
-      LIME,
-      "bold"
-    );
-
-    if (i < 3) {
-      line(ctx, x + 190, 660, x + 190, 800);
-    }
-  });
-
-  line(ctx, 76, 850, 1004, 850);
-
-  const artist = data.topArtists?.[0];
-  const album = data.topAlbums?.[0];
-  const track = data.topTracks?.[0];
+  line(ctx, 76, 650, 1004, 650);
 
   const cards = [
     {
-      label: "TOP ARTIST",
-      item: artist,
-      name: artist?.name,
-      image: getImageUrl(artist),
-      artist: ""
+      label: "01 / TOP ARTIST",
+      item: data.topArtists?.[0],
+      image: getImageUrl(data.topArtists?.[0]),
+      name: data.topArtists?.[0]?.name,
+      subtitle: data.topArtists?.[0]?.genres?.slice(0, 2).join(" · ") || "YOUR MOST PLAYED ARTIST"
     },
     {
-      label: "TOP ALBUM",
-      item: album,
-      name: album?.name,
-      image: getImageUrl(album),
-      artist: album ? getArtist(album) : ""
+      label: "02 / TOP ALBUM",
+      item: data.topAlbums?.[0],
+      image: getImageUrl(data.topAlbums?.[0]),
+      name: data.topAlbums?.[0]?.name,
+      subtitle: data.topAlbums?.[0] ? getArtist(data.topAlbums[0]) : "YOUR MOST PLAYED ALBUM"
     },
     {
-      label: "TOP TRACK",
-      item: track,
-      name: track?.name,
-      image: getImageUrl(track),
-      artist: track ? getArtist(track) : ""
+      label: "03 / TOP TRACK",
+      item: data.topTracks?.[0],
+      image: getImageUrl(data.topTracks?.[0]),
+      name: data.topTracks?.[0]?.name,
+      subtitle: data.topTracks?.[0] ? getArtist(data.topTracks[0]) : "YOUR MOST PLAYED TRACK"
     }
   ];
 
+  const cardY = [720, 1080, 1440];
+
   for (let i = 0; i < cards.length; i++) {
     const card = cards[i];
-    const x = 76 + i * 315;
+    const y = cardY[i];
 
-    text(ctx, card.label, x, 930, 17, GREY);
+    text(ctx, card.label, 82, y, 19, LIME, "bold");
 
     await drawCover(
       ctx,
       card.image,
-      x, 990, 270, 270
+      82, y + 35, 230, 230
     );
 
     text(
       ctx,
-      fitText(ctx, card.name || "No data", 260),
-      x, 1310, 24, WHITE, "bold"
+      fitText(ctx, card.name || "No data", 640),
+      355, y + 115, 38, WHITE, "bold"
     );
 
     text(
       ctx,
-      fitText(ctx, card.artist || "LUXX", 260),
-      x, 1345, 17, GREY
+      fitText(ctx, card.subtitle, 640),
+      358, y + 160, 21, GREY
     );
+
+    if (i < cards.length - 1) {
+      line(ctx, 82, y + 300, 1000, y + 300);
+    }
   }
-
-  line(ctx, 76, 1430, 1004, 1430);
-
-  text(ctx, "YOUR LISTENING PROFILE", 80, 1500, 18, LIME);
-  text(ctx, "A collection of your musical world.", 80, 1550, 26, WHITE);
 
   footer(ctx);
 }

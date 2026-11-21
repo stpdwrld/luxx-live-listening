@@ -5,7 +5,6 @@
 }
 
 html {
-  background: #090909;
   color-scheme: dark;
 }
 
@@ -18,24 +17,7 @@ body {
   display: flex;
   justify-content: center;
   padding: 28px 18px;
-}
-
-button,
-a,
-input {
-  font-family: inherit;
-  -webkit-tap-highlight-color: transparent;
-}
-
-button:focus,
-a:focus {
-  outline: none;
-}
-
-button:focus-visible,
-a:focus-visible {
-  outline: 1px solid #c7ff65;
-  outline-offset: 4px;
+  overflow-x: hidden;
 }
 
 .container {
@@ -43,7 +25,7 @@ a:focus-visible {
   max-width: 460px;
 }
 
-header {
+.topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -79,87 +61,82 @@ footer {
   color: #858585;
 }
 
-/* MENU BUTTON */
+/* HAMBURGER */
 
 .menu-toggle {
   width: 42px;
   height: 42px;
+  padding: 10px;
   margin: 0;
-  padding: 11px;
-  background: #151515;
-  border: 1px solid #292929;
-  border-radius: 10px;
+  background: transparent;
+  border: 1px solid #333;
+  border-radius: 9px;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
   gap: 5px;
   cursor: pointer;
 }
 
 .menu-toggle span {
-  width: 100%;
+  display: block;
+  width: 18px;
   height: 2px;
-  background: #c7ff65;
+  background: #f3f3f3;
   border-radius: 5px;
+  flex-shrink: 0;
 }
 
-/* OVERLAY */
+.menu-toggle:active {
+  background: #181818;
+}
+
+/* DRAWER */
 
 .menu-overlay {
   position: fixed;
   inset: 0;
   z-index: 20;
-  background: rgba(0, 0, 0, .68);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, .65);
   opacity: 0;
   visibility: hidden;
-  pointer-events: none;
-  transition: opacity .3s ease, visibility .3s ease;
+  transition: opacity .28s ease, visibility .28s ease;
 }
 
 .menu-overlay.open {
   opacity: 1;
   visibility: visible;
-  pointer-events: auto;
 }
-
-/* DRAWER */
 
 .navigation {
   position: fixed;
   z-index: 21;
   top: 0;
   right: 0;
-  width: min(340px, 86vw);
-  height: 100vh;
+  width: min(330px, 85vw);
   height: 100dvh;
-  padding: 30px 25px;
-  background: #101010;
+  padding: 28px 24px;
+  background: #111;
   border-left: 1px solid #292929;
   display: flex;
   flex-direction: column;
-  transform: translateX(105%);
-  transition: transform .38s cubic-bezier(.22, 1, .36, 1);
+  transform: translateX(100%);
   visibility: hidden;
-  pointer-events: none;
+  transition: transform .32s cubic-bezier(.22, 1, .36, 1),
+              visibility .32s ease;
 }
 
 .navigation.open {
   transform: translateX(0);
   visibility: visible;
-  pointer-events: auto;
 }
 
 .menu-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-bottom: 65px;
-}
-
-.menu-brand {
-  font-size: 24px;
+  align-items: center;
+  margin-bottom: 55px;
 }
 
 .menu-close {
@@ -167,20 +144,21 @@ footer {
   height: 40px;
   margin: 0;
   padding: 0;
-  background: #202020;
-  color: white;
+  background: #1c1c1c;
+  color: #eee;
   border: 1px solid #333;
   border-radius: 9px;
-  font-size: 26px;
+  font-size: 25px;
   font-weight: 400;
+  line-height: 1;
   cursor: pointer;
 }
 
 .menu-label {
-  color: #666;
+  color: #777;
   font-size: 10px;
   letter-spacing: 2px;
-  margin: 0 0 18px 5px;
+  margin-bottom: 16px;
 }
 
 .menu-links {
@@ -192,39 +170,34 @@ footer {
 .nav-link {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 18px 15px;
-  border-radius: 9px;
-  border: 1px solid transparent;
-  color: #999;
+  gap: 14px;
+  padding: 16px 14px;
+  color: #aaa;
   text-decoration: none;
   font-size: 14px;
-  transition: background .22s ease, color .22s ease;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  transition: background .2s ease, color .2s ease;
+}
+
+.nav-link.active {
+  background: #1b1b1b;
+  border-color: #303030;
+  color: #fff;
+}
+
+.nav-link:active {
+  background: #222;
 }
 
 .nav-number {
-  color: #555;
+  color: #777;
   font-size: 10px;
   letter-spacing: 1px;
 }
 
 .nav-arrow {
   margin-left: auto;
-  opacity: 0;
-  transform: translateX(-5px);
-  transition: .22s ease;
-}
-
-.nav-link:hover .nav-arrow,
-.nav-link.active .nav-arrow {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.nav-link:hover,
-.nav-link.active {
-  background: #1c1c1c;
-  border-color: #303030;
   color: #c7ff65;
 }
 
@@ -233,33 +206,29 @@ footer {
 }
 
 .nav-logout {
-  width: 100%;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  width: 100%;
   margin: 0 0 22px;
-  padding: 16px;
+  padding: 15px;
   background: transparent;
+  color: #aaa;
   border: 1px solid #333;
   border-radius: 9px;
-  color: #aaa;
   font-size: 11px;
+  letter-spacing: 1.5px;
   cursor: pointer;
 }
 
-.nav-logout:hover {
-  color: #ff9999;
-  border-color: #663333;
+.nav-logout:active {
+  background: #1b1b1b;
 }
 
 .menu-bottom small {
-  color: #555;
+  color: #666;
   font-size: 9px;
-  letter-spacing: 1.5px;
-}
-
-body.menu-open {
-  overflow: hidden;
+  letter-spacing: 1px;
 }
 
 /* CARD */
@@ -305,8 +274,6 @@ input:focus {
   border-color: #c7ff65;
 }
 
-/* BUTTONS */
-
 button {
   width: 100%;
   padding: 15px;
@@ -321,14 +288,8 @@ button {
 }
 
 button:disabled {
-  opacity: .5;
+  opacity: .55;
   cursor: not-allowed;
-}
-
-.menu-close,
-.menu-toggle,
-.nav-logout {
-  width: auto;
 }
 
 .secondary {
@@ -342,8 +303,6 @@ button:disabled {
   color: #ffaaaa;
   border: 1px solid #713333;
 }
-
-/* STATUS */
 
 .status-box {
   background: #090909;
@@ -370,8 +329,6 @@ hr {
   margin: 28px 0;
 }
 
-/* MESSAGES */
-
 .error {
   color: #ff7777;
   font-size: 12px;
@@ -383,22 +340,31 @@ hr {
   min-height: 16px;
 }
 
-/* FOOTER */
-
 footer {
   text-align: center;
   margin-top: 45px;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #c7ff65;
+  outline-offset: 3px;
 }
 
 [hidden] {
   display: none !important;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .navigation,
-  .menu-overlay,
-  .nav-link,
-  .nav-arrow {
-    transition: none;
+@media (max-width: 380px) {
+  .admin-label {
+    font-size: 9px;
+  }
+
+  .header-right {
+    gap: 10px;
+  }
+
+  h1 {
+    font-size: 40px;
   }
 }

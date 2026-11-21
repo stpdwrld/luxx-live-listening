@@ -69,9 +69,7 @@ $("menu-close").addEventListener("click", closeMenu);
 $("menu-overlay").addEventListener("click", closeMenu);
 
 document.addEventListener("keydown", event => {
-  if (event.key === "Escape") {
-    closeMenu();
-  }
+  if (event.key === "Escape") closeMenu();
 });
 
 // ========================================
@@ -79,18 +77,25 @@ document.addEventListener("keydown", event => {
 // ========================================
 
 async function logout() {
-  closeMenu();
+  const button = $("nav-logout");
+
+  button.disabled = true;
+  button.innerHTML = "<span>LOGGING OUT...</span>";
 
   try {
     await api("/api/admin/logout", {
       method: "POST"
     });
-  } finally {
-    window.location.href = "/panel/";
+
+    window.location.replace("/panel/");
+
+  } catch (error) {
+    button.disabled = false;
+    button.innerHTML = "<span>LOG OUT</span><span>↗</span>";
+    alert("Logout failed: " + error.message);
   }
 }
 
-$("logout-button").addEventListener("click", logout);
 $("nav-logout").addEventListener("click", logout);
 
 // ========================================
@@ -124,16 +129,13 @@ async function loadSpotifyStatus() {
 
   if (data.connected) {
     $("spotify-status").textContent = "CONNECTED";
-
     $("spotify-description").textContent =
       "Your Spotify account is connected to LUXX.";
 
     $("spotify-connect-button").textContent =
       "RECONNECT SPOTIFY";
-
   } else {
     $("spotify-status").textContent = "NOT CONNECTED";
-
     $("spotify-description").textContent =
       "Connect your Spotify account to enable live listening.";
 
@@ -149,14 +151,11 @@ async function loadSpotifyStatus() {
 $("login-form").addEventListener("submit", async event => {
   event.preventDefault();
 
+  const button = $("login-button");
+
   $("login-error").textContent = "";
-
-  const button = event.submitter;
-
-  if (button) {
-    button.disabled = true;
-    button.textContent = "SIGNING IN...";
-  }
+  button.disabled = true;
+  button.textContent = "SIGNING IN...";
 
   try {
     await api("/api/admin/login", {
@@ -186,10 +185,8 @@ $("login-form").addEventListener("submit", async event => {
     $("login-error").textContent = error.message;
 
   } finally {
-    if (button) {
-      button.disabled = false;
-      button.textContent = "SIGN IN";
-    }
+    button.disabled = false;
+    button.textContent = "SIGN IN";
   }
 });
 
@@ -234,9 +231,7 @@ $("auto-button").addEventListener("click", async () => {
   try {
     await api("/api/admin/status", {
       method: "POST",
-      body: JSON.stringify({
-        status: "auto"
-      })
+      body: JSON.stringify({ status: "auto" })
     });
 
     $("action-message").textContent =
@@ -264,9 +259,7 @@ $("offline-button").addEventListener("click", async () => {
   try {
     await api("/api/admin/status", {
       method: "POST",
-      body: JSON.stringify({
-        status: "offline"
-      })
+      body: JSON.stringify({ status: "offline" })
     });
 
     $("action-message").textContent =

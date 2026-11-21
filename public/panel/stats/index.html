@@ -107,16 +107,46 @@
 
     <section class="share-section">
       <p class="eyebrow">YOUR LISTENING IDENTITY</p>
-      <h2>Make it<br><span>shareable.</span></h2>
+      <h2>Choose your<br><span>story.</span></h2>
       <p class="muted">
-        Turn your listening profile into an Instagram Story.
+        Four different designs. One LUXX identity.
       </p>
+
+      <div class="design-grid">
+
+        <button class="design-option" data-design="artists" aria-pressed="false">
+          <span class="design-number">01</span>
+          <strong>Artists</strong>
+          <small>Artist edition</small>
+        </button>
+
+        <button class="design-option" data-design="albums" aria-pressed="false">
+          <span class="design-number">02</span>
+          <strong>Albums</strong>
+          <small>Album edition</small>
+        </button>
+
+        <button class="design-option" data-design="tracks" aria-pressed="false">
+          <span class="design-number">03</span>
+          <strong>Tracks</strong>
+          <small>Track edition</small>
+        </button>
+
+        <button class="design-option" data-design="complete" aria-pressed="false">
+          <span class="design-number">04</span>
+          <strong>Complete</strong>
+          <small>Full profile</small>
+        </button>
+
+      </div>
 
       <button id="share-button" disabled>
         GENERATE STORY
       </button>
 
       <div id="story-preview" hidden>
+        <p class="preview-label">STORY PREVIEW</p>
+
         <canvas id="story-canvas" width="1080" height="1920"></canvas>
 
         <button id="download-button" class="secondary">

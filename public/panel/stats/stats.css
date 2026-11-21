@@ -1,6 +1,11 @@
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
@@ -44,10 +49,6 @@ h1 span,
   font-size: 10px;
   letter-spacing: 1px;
   text-decoration: none;
-}
-
-.back-link span {
-  margin-right: 6px;
 }
 
 .eyebrow {
@@ -211,6 +212,29 @@ button {
 button:disabled {
   opacity: .4;
   cursor: not-allowed;
+}
+
+.secondary {
+  background: #202020;
+  color: #f3f3f3;
+  border: 1px solid #383838;
+}
+
+#story-preview {
+  margin-top: 24px;
+}
+
+#story-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid #333;
+  border-radius: 10px;
+  background: #090909;
+}
+
+#native-share-button {
+  margin-top: 10px;
 }
 
 footer {

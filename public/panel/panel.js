@@ -26,11 +26,24 @@ async function api(path, options = {}) {
 function showDashboard() {
   $("login-view").hidden = true;
   $("dashboard-view").hidden = false;
+  $("menu-toggle").hidden = false;
 }
 
 function showLogin() {
   $("dashboard-view").hidden = true;
   $("login-view").hidden = false;
+  $("menu-toggle").hidden = true;
+  $("navigation").hidden = true;
+}
+
+async function logout() {
+  try {
+    await api("/api/admin/logout", {
+      method: "POST"
+    });
+  } finally {
+    window.location.href = "/panel/";
+  }
 }
 
 async function loadStatus() {
@@ -71,6 +84,19 @@ async function loadSpotifyStatus() {
   }
 }
 
+// NAVIGATION
+$("menu-toggle").addEventListener("click", () => {
+  const menu = $("navigation");
+  const isOpen = !menu.hidden;
+
+  menu.hidden = isOpen;
+
+  $("menu-toggle").setAttribute(
+    "aria-expanded",
+    String(!isOpen)
+  );
+});
+
 // LOGIN
 $("login-form").addEventListener("submit", async event => {
   event.preventDefault();
@@ -86,6 +112,13 @@ $("login-form").addEventListener("submit", async event => {
     });
 
     $("password").value = "";
+
+    const params = new URLSearchParams(location.search);
+
+    if (params.get("required") === "login") {
+      window.location.replace("/panel/stats/");
+      return;
+    }
 
     showDashboard();
 
@@ -162,15 +195,8 @@ $("offline-button").addEventListener("click", async () => {
 });
 
 // LOGOUT
-$("logout-button").addEventListener("click", async () => {
-  try {
-    await api("/api/admin/logout", {
-      method: "POST"
-    });
-  } finally {
-    showLogin();
-  }
-});
+$("logout-button").addEventListener("click", logout);
+$("nav-logout").addEventListener("click", logout);
 
 // INITIALIZATION
 async function init() {

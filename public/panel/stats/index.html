@@ -13,10 +13,7 @@
 
     <header class="topbar">
       <a href="/panel/" class="brand">LUXX<span>.</span></a>
-
-      <a href="/panel/" class="back-link">
-        <span>←</span> DASHBOARD
-      </a>
+      <a href="/panel/" class="back-link">← DASHBOARD</a>
     </header>
 
     <section class="intro">
@@ -28,7 +25,6 @@
     </section>
 
     <section class="stats-section">
-
       <div class="section-heading">
         <div>
           <p class="eyebrow">OVERVIEW</p>
@@ -64,7 +60,6 @@
           <strong id="album-count">—</strong>
         </article>
       </div>
-
     </section>
 
     <p id="loading" class="loading">LOADING LISTENING DATA...</p>
@@ -111,15 +106,27 @@
     </section>
 
     <section class="share-section">
-      <p class="eyebrow">SHARE YOUR MUSIC</p>
-      <h2>Your listening.<br><span>Your identity.</span></h2>
+      <p class="eyebrow">YOUR LISTENING IDENTITY</p>
+      <h2>Make it<br><span>shareable.</span></h2>
       <p class="muted">
-        Create a visual summary of your listening profile.
+        Turn your listening profile into an Instagram Story.
       </p>
 
       <button id="share-button" disabled>
         GENERATE STORY
       </button>
+
+      <div id="story-preview" hidden>
+        <canvas id="story-canvas" width="1080" height="1920"></canvas>
+
+        <button id="download-button" class="secondary">
+          DOWNLOAD PNG
+        </button>
+
+        <button id="native-share-button" class="secondary">
+          SHARE STORY
+        </button>
+      </div>
 
       <p id="share-message" class="message"></p>
     </section>

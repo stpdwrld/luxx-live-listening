@@ -10,12 +10,20 @@
 </head>
 <body>
   <main class="container">
+
     <header>
       <a class="brand" href="/">LUXX<span>.</span></a>
 
       <div class="header-right">
         <span class="admin-label">ADMIN ACCESS</span>
-        <button id="menu-toggle" class="menu-toggle" aria-label="Open menu" aria-expanded="false" hidden>
+
+        <button
+          id="menu-toggle"
+          class="menu-toggle"
+          aria-label="Open navigation"
+          aria-expanded="false"
+          hidden
+        >
           <span></span>
           <span></span>
           <span></span>
@@ -23,20 +31,60 @@
       </div>
     </header>
 
-    <nav id="navigation" class="navigation" hidden>
-      <a href="/panel/" class="nav-link active">Dashboard</a>
-      <a href="/panel/stats/" class="nav-link">Share Stats</a>
-      <button id="nav-logout" class="nav-logout">LOG OUT</button>
-    </nav>
+    <!-- MENU OVERLAY -->
+    <div id="menu-overlay" class="menu-overlay"></div>
+
+    <!-- SIDE NAVIGATION -->
+    <aside id="navigation" class="navigation" aria-hidden="true">
+      <div class="menu-header">
+        <a href="/" class="menu-brand">LUXX<span>.</span></a>
+
+        <button
+          id="menu-close"
+          class="menu-close"
+          aria-label="Close navigation"
+        >×</button>
+      </div>
+
+      <p class="menu-label">WORKSPACE</p>
+
+      <nav class="menu-links">
+        <a href="/panel/" class="nav-link active">
+          <span class="nav-number">01</span>
+          <span>Dashboard</span>
+          <span class="nav-arrow">↗</span>
+        </a>
+
+        <a href="/panel/stats/" class="nav-link">
+          <span class="nav-number">02</span>
+          <span>Share Stats</span>
+          <span class="nav-arrow">↗</span>
+        </a>
+      </nav>
+
+      <div class="menu-bottom">
+        <button id="nav-logout" class="nav-logout">
+          <span>LOG OUT</span>
+          <span>↗</span>
+        </button>
+
+        <small>LUXX LIVE LISTENING · ADMIN</small>
+      </div>
+    </aside>
 
     <!-- LOGIN -->
     <section id="login-view" class="card">
       <p class="eyebrow">SECURE AREA</p>
+
       <h1>Welcome<br><span>back.</span></h1>
-      <p class="muted">Sign in to manage your listening status.</p>
+
+      <p class="muted">
+        Sign in to manage your listening status.
+      </p>
 
       <form id="login-form">
         <label for="password">Admin Password</label>
+
         <input
           id="password"
           type="password"
@@ -45,6 +93,7 @@
         >
 
         <button type="submit">SIGN IN</button>
+
         <p id="login-error" class="error" role="alert"></p>
       </form>
     </section>
@@ -52,13 +101,22 @@
     <!-- DASHBOARD -->
     <section id="dashboard-view" class="card" hidden>
       <p class="eyebrow">CONTROL CENTER</p>
-      <h1>Listening<br><span>control.</span></h1>
-      <p class="muted">Manage your public listening presence.</p>
 
+      <h1>Listening<br><span>control.</span></h1>
+
+      <p class="muted">
+        Manage your public listening presence.
+      </p>
+
+      <!-- SPOTIFY -->
       <div class="status-box">
         <span class="muted">SPOTIFY CONNECTION</span>
+
         <strong id="spotify-status">CHECKING...</strong>
-        <p id="spotify-description">Checking Spotify connection...</p>
+
+        <p id="spotify-description">
+          Checking Spotify connection...
+        </p>
       </div>
 
       <button id="spotify-connect-button">
@@ -69,9 +127,12 @@
 
       <hr>
 
+      <!-- LISTENING MODE -->
       <div class="status-box">
         <span class="muted">CURRENT MODE</span>
+
         <strong id="current-mode">LOADING...</strong>
+
         <p id="mode-description">Checking status...</p>
       </div>
 
@@ -91,6 +152,7 @@
     </section>
 
     <footer>LUXX LIVE LISTENING · ADMIN</footer>
+
   </main>
 
   <script src="/panel/panel.js" defer></script>

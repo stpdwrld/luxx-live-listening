@@ -1,6 +1,12 @@
 
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  background: #090909;
+  color-scheme: dark;
 }
 
 body {
@@ -12,6 +18,24 @@ body {
   display: flex;
   justify-content: center;
   padding: 28px 18px;
+}
+
+button,
+a,
+input {
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus,
+a:focus {
+  outline: none;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 1px solid #c7ff65;
+  outline-offset: 4px;
 }
 
 .container {
@@ -69,6 +93,7 @@ footer {
   flex-direction: column;
   justify-content: center;
   gap: 5px;
+  cursor: pointer;
 }
 
 .menu-toggle span {
@@ -87,14 +112,10 @@ footer {
   background: rgba(0, 0, 0, .68);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-
-  transition:
-    opacity .3s ease,
-    visibility .3s ease;
+  transition: opacity .3s ease, visibility .3s ease;
 }
 
 .menu-overlay.open {
@@ -103,31 +124,23 @@ footer {
   pointer-events: auto;
 }
 
-/* SIDE DRAWER */
+/* DRAWER */
 
 .navigation {
   position: fixed;
   z-index: 21;
   top: 0;
   right: 0;
-
   width: min(340px, 86vw);
   height: 100vh;
   height: 100dvh;
-
   padding: 30px 25px;
-
   background: #101010;
   border-left: 1px solid #292929;
-
   display: flex;
   flex-direction: column;
-
   transform: translateX(105%);
-
-  transition:
-    transform .38s cubic-bezier(.22, 1, .36, 1);
-
+  transition: transform .38s cubic-bezier(.22, 1, .36, 1);
   visibility: hidden;
   pointer-events: none;
 }
@@ -154,14 +167,13 @@ footer {
   height: 40px;
   margin: 0;
   padding: 0;
-
   background: #202020;
   color: white;
   border: 1px solid #333;
   border-radius: 9px;
-
   font-size: 26px;
   font-weight: 400;
+  cursor: pointer;
 }
 
 .menu-label {
@@ -181,20 +193,13 @@ footer {
   display: flex;
   align-items: center;
   gap: 16px;
-
   padding: 18px 15px;
-
   border-radius: 9px;
   border: 1px solid transparent;
-
   color: #999;
   text-decoration: none;
   font-size: 14px;
-
-  transition:
-    background .22s ease,
-    color .22s ease,
-    border-color .22s ease;
+  transition: background .22s ease, color .22s ease;
 }
 
 .nav-number {
@@ -232,16 +237,14 @@ footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-
   margin: 0 0 22px;
   padding: 16px;
-
   background: transparent;
   border: 1px solid #333;
   border-radius: 9px;
-
   color: #aaa;
   font-size: 11px;
+  cursor: pointer;
 }
 
 .nav-logout:hover {
@@ -322,6 +325,12 @@ button:disabled {
   cursor: not-allowed;
 }
 
+.menu-close,
+.menu-toggle,
+.nav-logout {
+  width: auto;
+}
+
 .secondary {
   background: #252525;
   color: white;
@@ -332,12 +341,6 @@ button:disabled {
   background: #421d1d;
   color: #ffaaaa;
   border: 1px solid #713333;
-}
-
-.logout {
-  background: transparent;
-  border: 1px solid #333;
-  color: #999;
 }
 
 /* STATUS */
@@ -386,8 +389,6 @@ footer {
   text-align: center;
   margin-top: 45px;
 }
-
-/* UTILITIES */
 
 [hidden] {
   display: none !important;

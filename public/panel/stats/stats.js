@@ -152,9 +152,15 @@ function renderList(id, items, formatter) {
 // IMAGE HELPERS
 // ========================================
 
+
 function getImageUrl(item) {
   if (!item) return "";
 
+  // Format yang digunakan API LUXX
+  if (item.image) return item.image;
+  if (item.image_url) return item.image_url;
+
+  // Format Spotify
   if (item.images?.length) {
     return item.images[0].url || "";
   }
@@ -163,8 +169,15 @@ function getImageUrl(item) {
     return item.album.images[0].url || "";
   }
 
-  return "";
+  // Alternatif format gambar
+  return (
+    item.album_image ||
+    item.artist_image ||
+    item.cover ||
+    ""
+  );
 }
+
 
 function getImage(url) {
   if (!url) return Promise.resolve(null);
